@@ -85,22 +85,25 @@ class LPRSimulator
             await udpClient.SendAsync(response, response.Length, remoteEndPoint);
             LogMessage("Camera", "Server", response);
         }
-        if (messageType == 0x4300)
+
+        if (messageType == 0x4300) // Trigger Request
         {
-            // Example input values for Unit ID, ID, Car ID, Trigger ID, and Detected Chars
-            uint unitId = 1;
+            //    uint triggerId = 10005;
+            // Extract Trigger ID from the message data (4 bytes starting at index 17)
+            uint triggerId = BitConverter.ToUInt32(message, 17);
+            //    uint unitId = 1;
+            uint unitId = BitConverter.ToUInt32(message, 1);
+            // Example input values for ID and Car ID (you may want to generate these dynamically)
             uint id = 13;
             uint carId = 6;
-            uint triggerId = 10005;
             string detectedChars = "395BTN";
 
-            // Create the license plate info message with the provided parameters
-            byte[] response2 = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
-            await udpClient.SendAsync(response2, response2.Length, remoteEndPoint);
+            // Create the license plate info message with the extracted Unit ID and Trigger ID
+            byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
+            await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
 
             // Display the raw message as a hexadecimal string
-            Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(message).Replace("-", ""));
-
+            Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
         }
     }
     private static byte[] CreateStatusResponse(byte[] request)

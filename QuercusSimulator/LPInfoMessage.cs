@@ -8,24 +8,6 @@ namespace QuercusSimulator
 {
     public static class LPInfoMessage
     {
-        
-
-        //static void Main()
-        //{
-        //    // Example input values for Unit ID, ID, Car ID, Trigger ID, and Detected Chars
-        //    uint unitId = 1;
-        //    uint id = 13;
-        //    uint carId = 6;
-        //    uint triggerId = 10005;
-        //    string detectedChars = "395BTN";
-
-        //    // Create the license plate info message with the provided parameters
-        //    byte[] message = CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
-
-        //    // Display the raw message as a hexadecimal string
-        //    Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(message).Replace("-", ""));
-        //}
-
         public static byte[] CreateLicensePlateInfoMessage(uint unitId, uint id, uint carId, uint triggerId, string detectedChars)
         {
             // Total size of the message should be 188 bytes
