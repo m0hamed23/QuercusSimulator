@@ -6,8 +6,12 @@ using System.Threading.Tasks;
 
 class LPRSimulator
 {
-    private const int CameraPort = 7050;
-    private const string CameraIP = "10.0.0.111";
+    private const int CameraMainPort = 7051; // First port to listen on
+    private const int CameraConfigPort = 7041; // Second port to listen on
+    private const string ServerIP = "10.0.0.10";
+    private const int ServerMainPort = 7050;    // Default port for sending responses
+    private const int ServerConfigPort = 7040; // Port for sending ping responses
+
 
     static async Task Main(string[] args)
     {
@@ -17,42 +21,170 @@ class LPRSimulator
         //await SendLPNImageRequestAsync(udpClient, remoteEndPoint, carId: 100);
 
         // Start the camera simulator
-        await RunCameraSimulatorAsync();
+        //await RunCameraSimulatorAsync();
+
+        // Start the camera simulators for both ports
+        Task listenOnPort1 = RunCameraSimulatorAsync(CameraMainPort);
+        Task listenOnPort2 = RunCameraSimulatorAsync(CameraConfigPort);
+
+        // Wait for both tasks to complete (they run indefinitely)
+        await Task.WhenAll(listenOnPort1, listenOnPort2);
+
     }
 
-    private static async Task RunCameraSimulatorAsync()
+    //private static async Task RunCameraSimulatorAsync()
+    //{
+    //    var udpClient = new UdpClient(CameraPort);
+    //    Console.WriteLine($"Camera simulator listening on {CameraIP}:{CameraPort}");
+
+    //    while (true)
+    //    {
+    //        Console.WriteLine("\nEnter raw hex message to process (or type 'exit' to quit):");
+    //        string input = Console.ReadLine();
+
+    //        if (input.ToLower() == "exit")
+    //            break;
+
+    //        byte[] message = StringToByteArray(input);
+    //        if (message == null || message.Length < 19)
+    //        {
+    //            Console.WriteLine("Invalid or too short hex string. Please try again.");
+    //            continue;
+    //        }
+
+    //        var remoteEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.10"), 7050);
+    //        await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+    //    }
+    //}
+    private static async Task RunCameraSimulatorAsync(int port)
     {
-        var udpClient = new UdpClient(CameraPort);
-        Console.WriteLine($"Camera simulator listening on {CameraIP}:{CameraPort}");
-
-        while (true)
+        using (var udpClient = new UdpClient(port))
         {
-            Console.WriteLine("\nEnter raw hex message to process (or type 'exit' to quit):");
-            string input = Console.ReadLine();
+            Console.WriteLine($"Camera simulator listening on port {port}");
 
-            if (input.ToLower() == "exit")
-                break;
-
-            byte[] message = StringToByteArray(input);
-            if (message == null || message.Length < 19)
+            while (true)
             {
-                Console.WriteLine("Invalid or too short hex string. Please try again.");
-                continue;
-            }
+                try
+                {
+                    // Listen for incoming messages on the UDP port
+                    var result = await udpClient.ReceiveAsync();
+                    var message = result.Buffer;
+                    var remoteEndPoint = result.RemoteEndPoint;
 
-            var remoteEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraPort);
-            await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+                    if (message == null || message.Length < 19)
+                    {
+                        Console.WriteLine("Invalid or too short UDP message. Ignoring.");
+                        continue;
+                    }
+
+                    // Process the message based on the type
+                    //await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+                    await ProcessCameraMessageAsync(udpClient, message);
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error receiving UDP message: {ex.Message}");
+                }
+            }
         }
     }
 
-    private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message, IPEndPoint remoteEndPoint)
+    //private static async Task RunCameraSimulatorAsync(int port)
+    //{
+    //    var udpClient = new UdpClient(port);
+    //    Console.WriteLine($"Camera simulator listening on port {port}");
+
+    //    while (true)
+    //    {
+    //        Console.WriteLine($"\nListening on {port}. Enter raw hex message to process (or type 'exit' to quit):");
+    //        string input = Console.ReadLine();
+
+    //        if (input.ToLower() == "exit")
+    //            break;
+
+    //        byte[] message = StringToByteArray(input);
+    //        if (message == null || message.Length < 19)
+    //        {
+    //            Console.WriteLine("Invalid or too short hex string. Please try again.");
+    //            continue;
+    //        }
+
+    //        // All messages except ping responses will be sent to 10.0.0.10:7050
+    //        var remoteEndPoint = new IPEndPoint(IPAddress.Parse(RemoteIP), SendPort);
+    //        await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+    //    }
+    //}
+
+    //private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message, IPEndPoint remoteEndPoint)
+    //{
+    //    if (message.Length < 19)
+    //    {
+    //        Console.WriteLine($"Received message is too short (length: {message.Length})");
+    //        return;
+    //    }
+
+    //    // Read message type and adjust for endianness
+    //    ushort messageType = BitConverter.ToUInt16(message, 9);
+    //    if (BitConverter.IsLittleEndian)
+    //    {
+    //        messageType = (ushort)((messageType << 8) | (messageType >> 8));
+    //    }
+
+    //    byte[] response = null;
+    //    switch (messageType)
+    //    {
+    //        case 0x4400: // Status Request
+    //            response = CreateStatusResponse(message);
+    //            break;
+    //        case 0x4300: // Trigger Request
+    //            response = CreateTriggerResponse(message);
+    //            break;
+    //        case 0x4700: // LPN Image Request
+    //            response = CreateLPNImageResponse(message);
+    //            break;
+    //        case 0x6000: // Ping
+    //            response = CreatePingResponse(message);
+    //            break;
+    //        default:
+    //            Console.WriteLine($"Unsupported message type: 0x{messageType:X4}");
+    //            return;
+    //    }
+
+    //    if (response != null)
+    //    {
+    //        await udpClient.SendAsync(response, response.Length, remoteEndPoint);
+    //        LogMessage("Camera", "Server", response);
+    //    }
+
+    //    if (messageType == 0x4300) // Trigger Request
+    //    {
+    //        //    uint triggerId = 10005;
+    //        // Extract Trigger ID from the message data (4 bytes starting at index 17)
+    //        uint triggerId = BitConverter.ToUInt32(message, 17);
+    //        //    uint unitId = 1;
+    //        uint unitId = BitConverter.ToUInt32(message, 1);
+    //        // Example input values for ID and Car ID (you may want to generate these dynamically)
+    //        uint id = 13;
+    //        uint carId = 6;
+    //        string detectedChars = "395BTN";
+
+    //        // Create the license plate info message with the extracted Unit ID and Trigger ID
+    //        byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
+    //        await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+
+    //        // Display the raw message as a hexadecimal string
+    //        Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+    //    }
+    //}
+    private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message)
     {
         if (message.Length < 19)
         {
             Console.WriteLine($"Received message is too short (length: {message.Length})");
             return;
         }
-
+        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(ServerIP), ServerMainPort);
         // Read message type and adjust for endianness
         ushort messageType = BitConverter.ToUInt16(message, 9);
         if (BitConverter.IsLittleEndian)
@@ -74,6 +206,8 @@ class LPRSimulator
                 break;
             case 0x6000: // Ping
                 response = CreatePingResponse(message);
+                // Ping response must be sent to 10.0.0.10:7040
+                remoteEndPoint = new IPEndPoint(IPAddress.Parse(ServerIP), ServerConfigPort);
                 break;
             default:
                 Console.WriteLine($"Unsupported message type: 0x{messageType:X4}");
@@ -82,18 +216,16 @@ class LPRSimulator
 
         if (response != null)
         {
+
             await udpClient.SendAsync(response, response.Length, remoteEndPoint);
             LogMessage("Camera", "Server", response);
         }
 
         if (messageType == 0x4300) // Trigger Request
         {
-            //    uint triggerId = 10005;
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
             uint triggerId = BitConverter.ToUInt32(message, 17);
-            //    uint unitId = 1;
             uint unitId = BitConverter.ToUInt32(message, 1);
-            // Example input values for ID and Car ID (you may want to generate these dynamically)
             uint id = 13;
             uint carId = 6;
             string detectedChars = "395BTN";
@@ -410,4 +542,25 @@ class LPRSimulator
             return null;
         }
     }
+
+    //private static byte[] StringToByteArray(string hex)
+    //{
+    //    try
+    //    {
+    //        return Enumerable.Range(0, hex.Length)
+    //                         .Where(x => x % 2 == 0)
+    //                         .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
+    //                         .ToArray();
+    //    }
+    //    catch
+    //    {
+    //        return null;
+    //    }
+    //}
+
+    //private static void LogMessage(string from, string to, byte[] message)
+    //{
+    //    string hexMessage = BitConverter.ToString(message).Replace("-", "");
+    //    Console.WriteLine($"{from} -> {to}: {hexMessage}");
+    //}
 }
