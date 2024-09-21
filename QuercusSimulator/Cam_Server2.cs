@@ -41,6 +41,42 @@ class LPRSimulator
         }
     }
 
+    //private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message, IPEndPoint remoteEndPoint)
+    //{
+    //    if (message.Length < 19)
+    //    {
+    //        Console.WriteLine($"Received message is too short (length: {message.Length})");
+    //        return;
+    //    }
+
+    //    ushort messageType = BitConverter.ToUInt16(message, 9);
+    //    byte[] response = null;
+
+    //    switch (messageType)
+    //    {
+    //        case 0x0044: // Status Request
+    //            response = CreateStatusResponse(message);
+    //            break;
+    //        case 0x0043: // Trigger Request
+    //            response = CreateTriggerResponse(message);
+    //            break;
+    //        case 0x0047: // LPN Image Request
+    //            response = CreateLPNImageResponse(message);
+    //            break;
+    //        case 0x6000: // Ping
+    //            response = CreatePingResponse(message);
+    //            break;
+    //        default:
+    //            Console.WriteLine($"Unsupported message type: 0x{messageType:X4}");
+    //            return;
+    //    }
+
+    //    if (response != null)
+    //    {
+    //        await udpClient.SendAsync(response, response.Length, remoteEndPoint);
+    //        LogMessage("Camera", "Server", response);
+    //    }
+    //}
     private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message, IPEndPoint remoteEndPoint)
     {
         if (message.Length < 19)
@@ -49,19 +85,27 @@ class LPRSimulator
             return;
         }
 
+        // Read message type and adjust for endianness
         ushort messageType = BitConverter.ToUInt16(message, 9);
-        byte[] response = null;
+        if (BitConverter.IsLittleEndian)
+        {
+            messageType = (ushort)((messageType << 8) | (messageType >> 8));
+        }
 
+        byte[] response = null;
         switch (messageType)
         {
-            case 0x0044: // Status Request
+            case 0x4400: // Status Request
                 response = CreateStatusResponse(message);
                 break;
-            case 0x0043: // Trigger Request
+            case 0x4300: // Trigger Request
                 response = CreateTriggerResponse(message);
                 break;
-            case 0x0047: // LPN Image Request
+            case 0x4700: // LPN Image Request
                 response = CreateLPNImageResponse(message);
+                break;
+            case 0x6000: // Ping
+                response = CreatePingResponse(message);
                 break;
             default:
                 Console.WriteLine($"Unsupported message type: 0x{messageType:X4}");
@@ -123,22 +167,6 @@ class LPRSimulator
         return response;
     }
 
-
-    //private static byte[] CreateTriggerResponse(byte[] request)
-    //{
-    //    byte[] response = new byte[19];
-    //    Buffer.BlockCopy(request, 0, response, 0, 19); // Copy STX, Unit ID, Size, Type, Version, and Id
-
-    //    response[0] = 0x02; // STX
-    //    BitConverter.GetBytes((uint)19).CopyTo(response, 4); // Size
-    //    BitConverter.GetBytes((ushort)0xC000).CopyTo(response, 9); // Type (ACK)
-    //    BitConverter.GetBytes((ushort)0x0000).CopyTo(response, 11); // Version
-
-    //    response[17] = CalculateXOR(response, 0, 17); // BCC
-    //    response[18] = 0x03; // ETX
-
-    //    return response;
-    //}
     private static byte[] CreateTriggerResponse(byte[] request)
     {
         // The response should be exactly 19 bytes
@@ -178,36 +206,121 @@ class LPRSimulator
         return response;
     }
 
+
     private static byte[] CreateLPNImageResponse(byte[] request)
     {
-        byte[] response = new byte[200]; // Adjust size as needed
-        Buffer.BlockCopy(request, 0, response, 0, 19); // Copy STX, Unit ID, Size, Type, Version, and Id
+        string imagePath = @"D:\Quercus\lp_image.jpg";
+        byte[] imageData = File.ReadAllBytes(imagePath);
+        int imageSize = imageData.Length;
 
-        response[0] = 0x02; // STX
-        BitConverter.GetBytes((uint)response.Length).CopyTo(response, 4); // Size
-        BitConverter.GetBytes((ushort)0x8700).CopyTo(response, 9); // Type (LPN Image Response)
-        BitConverter.GetBytes((ushort)0x0000).CopyTo(response, 11); // Version
+        // Define ROI coordinates (example values)
+        ushort roiTop = 100;
+        ushort roiLeft = 200;
+        ushort roiBottom = 150;
+        ushort roiRight = 300;
 
-        // ROI coordinates (example values)
-        BitConverter.GetBytes((ushort)100).CopyTo(response, 17); // RoiTop
-        BitConverter.GetBytes((ushort)200).CopyTo(response, 19); // RoiLeft
-        BitConverter.GetBytes((ushort)150).CopyTo(response, 21); // RoiBottom
-        BitConverter.GetBytes((ushort)300).CopyTo(response, 23); // RoiRight
+        // Calculate total response size
+        int totalSize = 1 + 4 + 4 + 2 + 2 + 4 + 8 + 4 + imageSize + 1 + 1;
+        byte[] response = new byte[totalSize];
 
-        // Image Size (example value)
-        BitConverter.GetBytes((uint)150).CopyTo(response, 25);
+        // STX (Start of Text)
+        response[0] = 0x02;
 
-        // Image Data (simplified, just fill with some dummy data)
-        for (int i = 29; i < response.Length - 2; i++)
-        {
-            response[i] = (byte)(i % 256);
-        }
+        // Unit ID (4 bytes) - Copy from request
+        Buffer.BlockCopy(request, 1, response, 1, 4);
 
-        response[response.Length - 2] = CalculateXOR(response, 0, response.Length - 2); // BCC
-        response[response.Length - 1] = 0x03; // ETX
+        // Size (4 bytes) - Total size of the message
+        BitConverter.GetBytes((uint)totalSize).CopyTo(response, 5);
+
+        // Type (2 bytes) - LPN Image Response (0x8700)
+        response[9] = 0x87;
+        response[10] = 0x00;
+
+        // Version (2 bytes) - Copy from request
+        Buffer.BlockCopy(request, 11, response, 11, 2);
+
+        // ID (4 bytes) - Copy from request
+        Buffer.BlockCopy(request, 13, response, 13, 4);
+
+        // ROI coordinates (8 bytes)
+        BitConverter.GetBytes(roiTop).CopyTo(response, 17);
+        BitConverter.GetBytes(roiLeft).CopyTo(response, 19);
+        BitConverter.GetBytes(roiBottom).CopyTo(response, 21);
+        BitConverter.GetBytes(roiRight).CopyTo(response, 23);
+
+        // Image Size (4 bytes)
+        BitConverter.GetBytes((uint)imageSize).CopyTo(response, 25);
+
+        // Image Data (variable)
+        Buffer.BlockCopy(imageData, 0, response, 29, imageSize);
+
+        // BCC (Block Check Character) - XOR from STX to the last byte before BCC
+        response[totalSize - 2] = CalculateXOR(response, 0, totalSize - 2);
+
+        // ETX (End of Text)
+        response[totalSize - 1] = 0x03;
+
+        // Log the response message for verification
+        Console.WriteLine("Raw LPN Image Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
+        // Log the response message for verification
+        Console.WriteLine("Response Message Details:");
+        Console.WriteLine($"STX: {response[0]:X2}");
+        Console.WriteLine($"Unit ID: {BitConverter.ToString(response, 1, 4).Replace("-", "")}");
+        Console.WriteLine($"Size: {BitConverter.ToUInt32(response, 5)}");
+        Console.WriteLine($"Type: {BitConverter.ToUInt16(response, 9):X4}");
+        Console.WriteLine($"Version: {BitConverter.ToUInt16(response, 11)}");
+        Console.WriteLine($"ID: {BitConverter.ToUInt32(response, 13)}");
+        Console.WriteLine($"ROI Top: {BitConverter.ToUInt16(response, 17)}");
+        Console.WriteLine($"ROI Left: {BitConverter.ToUInt16(response, 19)}");
+        Console.WriteLine($"ROI Bottom: {BitConverter.ToUInt16(response, 21)}");
+        Console.WriteLine($"ROI Right: {BitConverter.ToUInt16(response, 23)}");
+        Console.WriteLine($"Image Size: {BitConverter.ToUInt32(response, 25)}");
+        Console.WriteLine("Image Data: " + BitConverter.ToString(response, 29, imageSize).Replace("-", ""));
+        Console.WriteLine($"BCC: {response[totalSize - 2]:X2}");
+        Console.WriteLine($"ETX: {response[totalSize - 1]:X2}");
 
         return response;
     }
+
+    private static byte[] CreatePingResponse(byte[] request)
+    {
+        // The response should be exactly 19 bytes (size for ACK response)
+        byte[] response = new byte[19];
+
+        // STX (Start of Text)
+        response[0] = 0x02;
+
+        // Unit ID (4 bytes) - Copy from the request
+        Buffer.BlockCopy(request, 1, response, 1, 4);
+
+        // Size (4 bytes) - Fixed size of 19 bytes
+        response[5] = 0x13; // 19 bytes
+        response[6] = 0x00;
+        response[7] = 0x00;
+        response[8] = 0x00;
+
+        // Type (2 bytes) - ACK type (0xC000)
+        response[9] = 0xC0;
+        response[10] = 0x00;
+
+        // Version (2 bytes) - Same as request
+        Buffer.BlockCopy(request, 11, response, 11, 2);
+
+        // ID (4 bytes) - Same as request
+        Buffer.BlockCopy(request, 13, response, 13, 4);
+
+        // BCC (Block Check Character) - XOR from STX to the last byte before BCC
+        response[17] = CalculateXOR(response, 0, 17);
+
+        // ETX (End of Text)
+        response[18] = 0x03;
+
+        // Log the response message for verification
+        Console.WriteLine("Raw Ping Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
+
+        return response;
+    }
+
 
     private static byte CalculateXOR(byte[] data, int start, int length)
     {

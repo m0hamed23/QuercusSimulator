@@ -123,7 +123,7 @@ class LicensePlateMessageBuilder
         uint unitId = 1;
         uint id = 13;
         uint carId = 6;
-        uint triggerId = 0x00152700;
+        uint triggerId = 10005;
         string detectedChars = "395BTN";
 
         // Create the license plate info message with the provided parameters
@@ -194,7 +194,7 @@ class LicensePlateMessageBuilder
         Buffer.BlockCopy(printableStringBytes, 0, message, 114, printableStringBytes.Length);
 
         // Country (32 bytes) - Example value (e.g., "ET")
-        string country = "ET";
+        string country = "ET(B)";
         byte[] countryBytes = Encoding.ASCII.GetBytes(country);
         Buffer.BlockCopy(countryBytes, 0, message, 154, countryBytes.Length);
 
