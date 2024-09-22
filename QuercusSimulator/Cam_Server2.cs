@@ -9,8 +9,15 @@ class LPRSimulator
     private const int CameraMainPort = 7051; // First port to listen on
     private const int CameraConfigPort = 7041; // Second port to listen on
     private const string ServerIP = "10.0.0.10";
+    private const string RealCamIP = "10.0.0.110";
+    private const int RealCamMainPort = 6051; // Second port to listen on
+
     private const int ServerMainPort = 7050;    // Default port for sending responses
     private const int ServerConfigPort = 7040; // Port for sending ping responses
+    static uint lastid = 77;
+    static uint lastcarId = 55;
+    static uint id = 1;
+    static uint carId = 1;
 
 
     static async Task Main(string[] args)
@@ -31,29 +38,37 @@ class LPRSimulator
         await Task.WhenAll(listenOnPort1, listenOnPort2);
 
     }
-
-    //private static async Task RunCameraSimulatorAsync()
+    //private static async Task RunCameraSimulatorAsync(int port)
     //{
-    //    var udpClient = new UdpClient(CameraPort);
-    //    Console.WriteLine($"Camera simulator listening on {CameraIP}:{CameraPort}");
-
-    //    while (true)
+    //    using (var udpClient = new UdpClient(port))
     //    {
-    //        Console.WriteLine("\nEnter raw hex message to process (or type 'exit' to quit):");
-    //        string input = Console.ReadLine();
+    //        Console.WriteLine($"Camera simulator listening on port {port}");
 
-    //        if (input.ToLower() == "exit")
-    //            break;
-
-    //        byte[] message = StringToByteArray(input);
-    //        if (message == null || message.Length < 19)
+    //        while (true)
     //        {
-    //            Console.WriteLine("Invalid or too short hex string. Please try again.");
-    //            continue;
-    //        }
+    //            try
+    //            {
+    //                // Listen for incoming messages on the UDP port
+    //                var result = await udpClient.ReceiveAsync();
+    //                var message = result.Buffer;
+    //                var remoteEndPoint = result.RemoteEndPoint;
 
-    //        var remoteEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.10"), 7050);
-    //        await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+    //                if (message == null || message.Length < 19)
+    //                {
+    //                    Console.WriteLine("Invalid or too short UDP message. Ignoring.");
+    //                    continue;
+    //                }
+
+    //                // Process the message based on the type
+    //                //await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
+    //                await ProcessCameraMessageAsync(udpClient, message);
+
+    //            }
+    //            catch (Exception ex)
+    //            {
+    //                Console.WriteLine($"Error receiving UDP message: {ex.Message}");
+    //            }
+    //        }
     //    }
     //}
     private static async Task RunCameraSimulatorAsync(int port)
@@ -66,10 +81,7 @@ class LPRSimulator
             {
                 try
                 {
-                    // Listen for incoming messages on the UDP port
-                    var result = await udpClient.ReceiveAsync();
-                    var message = result.Buffer;
-                    var remoteEndPoint = result.RemoteEndPoint;
+                    var (message, remoteEndPoint) = await UdpLargeMessageHandler.ReceiveLargeMessageAsync(udpClient);
 
                     if (message == null || message.Length < 19)
                     {
@@ -77,106 +89,15 @@ class LPRSimulator
                         continue;
                     }
 
-                    // Process the message based on the type
-                    //await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
                     await ProcessCameraMessageAsync(udpClient, message);
-
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error receiving UDP message: {ex.Message}");
+                    Console.WriteLine($"Error in camera simulator: {ex.Message}");
                 }
             }
         }
     }
-
-    //private static async Task RunCameraSimulatorAsync(int port)
-    //{
-    //    var udpClient = new UdpClient(port);
-    //    Console.WriteLine($"Camera simulator listening on port {port}");
-
-    //    while (true)
-    //    {
-    //        Console.WriteLine($"\nListening on {port}. Enter raw hex message to process (or type 'exit' to quit):");
-    //        string input = Console.ReadLine();
-
-    //        if (input.ToLower() == "exit")
-    //            break;
-
-    //        byte[] message = StringToByteArray(input);
-    //        if (message == null || message.Length < 19)
-    //        {
-    //            Console.WriteLine("Invalid or too short hex string. Please try again.");
-    //            continue;
-    //        }
-
-    //        // All messages except ping responses will be sent to 10.0.0.10:7050
-    //        var remoteEndPoint = new IPEndPoint(IPAddress.Parse(RemoteIP), SendPort);
-    //        await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
-    //    }
-    //}
-
-    //private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message, IPEndPoint remoteEndPoint)
-    //{
-    //    if (message.Length < 19)
-    //    {
-    //        Console.WriteLine($"Received message is too short (length: {message.Length})");
-    //        return;
-    //    }
-
-    //    // Read message type and adjust for endianness
-    //    ushort messageType = BitConverter.ToUInt16(message, 9);
-    //    if (BitConverter.IsLittleEndian)
-    //    {
-    //        messageType = (ushort)((messageType << 8) | (messageType >> 8));
-    //    }
-
-    //    byte[] response = null;
-    //    switch (messageType)
-    //    {
-    //        case 0x4400: // Status Request
-    //            response = CreateStatusResponse(message);
-    //            break;
-    //        case 0x4300: // Trigger Request
-    //            response = CreateTriggerResponse(message);
-    //            break;
-    //        case 0x4700: // LPN Image Request
-    //            response = CreateLPNImageResponse(message);
-    //            break;
-    //        case 0x6000: // Ping
-    //            response = CreatePingResponse(message);
-    //            break;
-    //        default:
-    //            Console.WriteLine($"Unsupported message type: 0x{messageType:X4}");
-    //            return;
-    //    }
-
-    //    if (response != null)
-    //    {
-    //        await udpClient.SendAsync(response, response.Length, remoteEndPoint);
-    //        LogMessage("Camera", "Server", response);
-    //    }
-
-    //    if (messageType == 0x4300) // Trigger Request
-    //    {
-    //        //    uint triggerId = 10005;
-    //        // Extract Trigger ID from the message data (4 bytes starting at index 17)
-    //        uint triggerId = BitConverter.ToUInt32(message, 17);
-    //        //    uint unitId = 1;
-    //        uint unitId = BitConverter.ToUInt32(message, 1);
-    //        // Example input values for ID and Car ID (you may want to generate these dynamically)
-    //        uint id = 13;
-    //        uint carId = 6;
-    //        string detectedChars = "395BTN";
-
-    //        // Create the license plate info message with the extracted Unit ID and Trigger ID
-    //        byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
-    //        await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
-
-    //        // Display the raw message as a hexadecimal string
-    //        Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
-    //    }
-    //}
     private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message)
     {
         if (message.Length < 19)
@@ -185,6 +106,8 @@ class LPRSimulator
             return;
         }
         IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(ServerIP), ServerMainPort);
+        //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
+
         // Read message type and adjust for endianness
         ushort messageType = BitConverter.ToUInt16(message, 9);
         if (BitConverter.IsLittleEndian)
@@ -199,6 +122,7 @@ class LPRSimulator
                 response = CreateStatusResponse(message);
                 break;
             case 0x4300: // Trigger Request
+                await ResendTriggerRequest(message);
                 response = CreateTriggerResponse(message);
                 break;
             case 0x4700: // LPN Image Request
@@ -218,7 +142,7 @@ class LPRSimulator
         {
 
             await udpClient.SendAsync(response, response.Length, remoteEndPoint);
-            LogMessage("Camera", "Server", response);
+            //LogMessage("Camera", "Server", response);
         }
 
         if (messageType == 0x4300) // Trigger Request
@@ -226,16 +150,58 @@ class LPRSimulator
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
             uint triggerId = BitConverter.ToUInt32(message, 17);
             uint unitId = BitConverter.ToUInt32(message, 1);
-            uint id = 13;
-            uint carId = 6;
-            string detectedChars = "395BTN";
 
-            // Create the license plate info message with the extracted Unit ID and Trigger ID
-            byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, detectedChars);
-            await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+            //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
+            //await SendTriggerRequestAsync(RealCameraEndPoint, triggerId);
+            // Resend the trigger request to 10.0.0.110:6051
+            await Task.Delay(2000);
 
-            // Display the raw message as a hexadecimal string
-            Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+            LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
+            //string newDetectedChars = "123ASD";
+            //string newPrintableString = "123 ASD";
+            if (LastLPNResult != null)
+            {
+                string newDetectedChars = LastLPNResult.ArabicLPN;
+                string newPrintableString = newDetectedChars;
+                Console.WriteLine($"newDetectedChars:{newDetectedChars}");
+                // Separate digits and letters
+                //string numbers = string.Concat(newDetectedChars.Where(char.IsDigit));
+                //string letters = string.Concat(newDetectedChars.Where(char.IsLetter));
+
+                //// Combine with a space in between
+                //newPrintableString = numbers + " " + letters;
+
+                id = lastid + 2;
+                carId = lastcarId + 1;
+                lastid = id;
+                lastcarId = carId;
+
+                //string detectedChars = "395BTN";
+
+                // Create the license plate info message with the extracted Unit ID and Trigger ID
+                byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, newDetectedChars);
+                await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+
+                // Display the raw message as a hexadecimal string
+                //Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+            }
+            else
+            {
+                Console.WriteLine($"LastLPNResult is null");
+
+                
+            }
+
+        }
+    }
+    private static async Task ResendTriggerRequest(byte[] originalMessage)
+    {
+        IPEndPoint realCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
+
+        using (var newUdpClient = new UdpClient())
+        {
+            await newUdpClient.SendAsync(originalMessage, originalMessage.Length, realCameraEndPoint);
+            Console.WriteLine($"Trigger request resent to {realCameraEndPoint}");
         }
     }
     private static byte[] CreateStatusResponse(byte[] request)
@@ -286,9 +252,9 @@ class LPRSimulator
 
         return response;
     }
-
     private static byte[] CreateTriggerResponse(byte[] request)
     {
+
         // The response should be exactly 19 bytes
         byte[] response = new byte[19];
 
@@ -325,11 +291,11 @@ class LPRSimulator
 
         return response;
     }
-
-
     private static byte[] CreateLPNImageResponse(byte[] request)
     {
-        string imagePath = @"D:\Quercus\lp_image.jpg";
+        //string imagePath = @"D:\lp.jpg";
+        string imagePath = @"C:\EventImages\lastimage.jpg";
+
         byte[] imageData = File.ReadAllBytes(imagePath);
         int imageSize = imageData.Length;
 
@@ -381,7 +347,7 @@ class LPRSimulator
         response[totalSize - 1] = 0x03;
 
         // Log the response message for verification
-        Console.WriteLine("Raw LPN Image Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
+        //Console.WriteLine("Raw LPN Image Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
         // Log the response message for verification
         Console.WriteLine("Response Message Details:");
         Console.WriteLine($"STX: {response[0]:X2}");
@@ -395,7 +361,7 @@ class LPRSimulator
         Console.WriteLine($"ROI Bottom: {BitConverter.ToUInt16(response, 21)}");
         Console.WriteLine($"ROI Right: {BitConverter.ToUInt16(response, 23)}");
         Console.WriteLine($"Image Size: {BitConverter.ToUInt32(response, 25)}");
-        Console.WriteLine("Image Data: " + BitConverter.ToString(response, 29, imageSize).Replace("-", ""));
+        //Console.WriteLine("Image Data: " + BitConverter.ToString(response, 29, imageSize).Replace("-", ""));
         Console.WriteLine($"BCC: {response[totalSize - 2]:X2}");
         Console.WriteLine($"ETX: {response[totalSize - 1]:X2}");
 
@@ -441,40 +407,66 @@ class LPRSimulator
         return response;
     }
 
-    private static async Task SendTriggerRequestAsync(UdpClient udpClient, IPEndPoint remoteEndPoint, uint triggerId)
+    //private static async Task SendTriggerRequestAsync(UdpClient udpClient, IPEndPoint remoteEndPoint, uint triggerId)
+    //{
+    //    byte[] request = new byte[19];
+
+    //    // STX (1 byte)
+    //    request[0] = 0x02;
+
+    //    // Unit ID (4 bytes) - Use a hardcoded or predefined Unit ID
+    //    BitConverter.GetBytes(1).CopyTo(request, 1);
+
+    //    // Size (4 bytes) - Fixed size of 19 bytes for trigger request
+    //    BitConverter.GetBytes(19).CopyTo(request, 5);
+
+    //    // Type (2 bytes) - Trigger Request (0x4300 in little-endian)
+    //    request[9] = 0x43;
+    //    request[10] = 0x00;
+
+    //    // Version (2 bytes) - Use version 1.0 for example
+    //    BitConverter.GetBytes(1).CopyTo(request, 11);
+
+    //    // ID (4 bytes) - Set an ID (unique for each conversation)
+    //    BitConverter.GetBytes(triggerId).CopyTo(request, 13);
+
+    //    // BCC (Block Check Character) - XOR from STX to the last byte before BCC
+    //    request[17] = CalculateXOR(request, 0, 17);
+
+    //    // ETX (1 byte) - End of message
+    //    request[18] = 0x03;
+
+    //    // Send the request
+    //    await udpClient.SendAsync(request, request.Length, remoteEndPoint);
+    //    LogMessage("Trigger Request", "Camera", request);
+    //}
+    private static async Task SendTriggerRequestAsync(IPEndPoint remoteEndPoint, uint triggerId)
     {
-        byte[] request = new byte[19];
-
-        // STX (1 byte)
-        request[0] = 0x02;
-
-        // Unit ID (4 bytes) - Use a hardcoded or predefined Unit ID
-        BitConverter.GetBytes(1).CopyTo(request, 1);
-
-        // Size (4 bytes) - Fixed size of 19 bytes for trigger request
-        BitConverter.GetBytes(19).CopyTo(request, 5);
-
-        // Type (2 bytes) - Trigger Request (0x4300 in little-endian)
-        request[9] = 0x43;
-        request[10] = 0x00;
-
-        // Version (2 bytes) - Use version 1.0 for example
-        BitConverter.GetBytes(1).CopyTo(request, 11);
-
-        // ID (4 bytes) - Set an ID (unique for each conversation)
-        BitConverter.GetBytes(triggerId).CopyTo(request, 13);
-
-        // BCC (Block Check Character) - XOR from STX to the last byte before BCC
-        request[17] = CalculateXOR(request, 0, 17);
-
-        // ETX (1 byte) - End of message
-        request[18] = 0x03;
-
-        // Send the request
-        await udpClient.SendAsync(request, request.Length, remoteEndPoint);
-        LogMessage("Trigger Request", "Camera", request);
+        using (var udpClient = new UdpClient())
+        {
+            byte[] request = new byte[19];
+            // STX (1 byte)
+            request[0] = 0x02;
+            // Unit ID (4 bytes) - Use a hardcoded or predefined Unit ID
+            BitConverter.GetBytes(1).CopyTo(request, 1);
+            // Size (4 bytes) - Fixed size of 19 bytes for trigger request
+            BitConverter.GetBytes(19).CopyTo(request, 5);
+            // Type (2 bytes) - Trigger Request (0x4300 in little-endian)
+            request[9] = 0x43;
+            request[10] = 0x00;
+            // Version (2 bytes) - Use version 1.0 for example
+            BitConverter.GetBytes((short)1).CopyTo(request, 11);
+            // ID (4 bytes) - Set an ID (unique for each conversation)
+            BitConverter.GetBytes(triggerId).CopyTo(request, 13);
+            // BCC (Block Check Character) - XOR from STX to the last byte before BCC
+            request[17] = CalculateXOR(request, 0, 17);
+            // ETX (1 byte) - End of message
+            request[18] = 0x03;
+            // Send the request
+            await udpClient.SendAsync(request, request.Length, remoteEndPoint);
+            LogMessage("Trigger Request", "Camera", request);
+        }
     }
-
     private static async Task SendLPNImageRequestAsync(UdpClient udpClient, IPEndPoint remoteEndPoint, uint carId)
     {
         byte[] request = new byte[19];
@@ -508,9 +500,6 @@ class LPRSimulator
         await udpClient.SendAsync(request, request.Length, remoteEndPoint);
         LogMessage("LPN Image Request", "Camera", request);
     }
-
-
-
     private static byte CalculateXOR(byte[] data, int start, int length)
     {
         byte xor = 0;
@@ -526,41 +515,4 @@ class LPRSimulator
         Console.WriteLine($"Source: {source}, Destination: {destination}");
         Console.WriteLine($"Message (Hex): {BitConverter.ToString(message).Replace("-", "")}");
     }
-
-    private static byte[] StringToByteArray(string hex)
-    {
-        try
-        {
-            int NumberChars = hex.Length;
-            byte[] bytes = new byte[NumberChars / 2];
-            for (int i = 0; i < NumberChars; i += 2)
-                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
-            return bytes;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    //private static byte[] StringToByteArray(string hex)
-    //{
-    //    try
-    //    {
-    //        return Enumerable.Range(0, hex.Length)
-    //                         .Where(x => x % 2 == 0)
-    //                         .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
-    //                         .ToArray();
-    //    }
-    //    catch
-    //    {
-    //        return null;
-    //    }
-    //}
-
-    //private static void LogMessage(string from, string to, byte[] message)
-    //{
-    //    string hexMessage = BitConverter.ToString(message).Replace("-", "");
-    //    Console.WriteLine($"{from} -> {to}: {hexMessage}");
-    //}
 }
