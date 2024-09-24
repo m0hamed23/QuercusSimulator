@@ -23,7 +23,7 @@ namespace QuercusSimulator
         {
             private static string serverIpAddress = "127.0.0.1"; // Server IP address
                                                                  //private static string serverIpAddress = "10.0.0.21"; // Server IP address
-            private static string ServerIP = "10.0.0.100"; // Server IP address
+            private static string ServerIP = "127.0.0.1"; // Server IP address
 
 
             private static int serverPort = 65432; // Server port number
@@ -94,8 +94,8 @@ namespace QuercusSimulator
                             {
                                 string lpn = responseJson["LPN"];
                                 string imageFilePathBase = responseJson["ImageFilePath"];
-                                string newImagePath = imageFilePathBase + ".png";
-                                string croppedLPImagePath = imageFilePathBase + "_LP.png";
+                                string newImagePath = imageFilePathBase + ".jpg";
+                                string croppedLPImagePath = imageFilePathBase + "_LP.jpg";
                                 //string arabicLPN = ConvertToArabic(lpn);
                                 string arabicLPN = lpn;
 

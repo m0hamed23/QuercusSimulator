@@ -29,29 +29,12 @@ namespace TriggerLPR
         {
             private static string serverIpAddress = "127.0.0.1"; // Server IP address
                                                                  //private static string serverIpAddress = "10.0.0.21"; // Server IP address
-            private static string ServerIP = "10.0.0.100"; // Server IP address
+            private static string ServerIP = "127.0.0.1"; // Server IP address
 
 
             private static int serverPort = 65432; // Server port number
             private static byte[] buffer = new byte[1024];
-            private static string lastImagePath = null;
-            private static string lastCroppedLPImagePath = null;
 
-            private static readonly Dictionary<char, char> charMapping = new Dictionary<char, char>()
-        {
-            {'A', 'أ'}, {'B', 'ب'}, {'G', 'ج'}, {'D', 'د'}, {'R', 'ر'},
-            {'S', 'س'}, {'C', 'ص'}, {'T', 'ط'}, {'E', 'ع'}, {'F', 'ف'},
-            {'K', 'ق'}, {'L', 'ل'}, {'M', 'م'}, {'N', 'ن'}, {'H', 'ﻫ'},
-            {'W', 'و'}, {'Y', 'ی'}, {'0', '٠'}, {'1', '1'}, {'2', '2'},
-            {'3', '3'}, {'4', '4'}, {'5', '5'}, {'6', '6'}, {'7', '7'},
-            {'8', '8'}, {'9', '9'}
-        };
-            private static readonly Dictionary<char, char> charMappingArNumbers = new Dictionary<char, char>()
-        {
-                {'0', '٠'}, {'1', '١'}, {'2', '٢'},
-                {'3', '٣'}, {'4', '٤'}, {'5', '٥'}, {'6', '٦'}, {'7', '٧'},
-                {'8', '٨'}, {'9', '٩'}
-        };
             public static async Task<LPNResult> CaptureLPNAsync(string transactionID)
             {
                 try
@@ -63,12 +46,12 @@ namespace TriggerLPR
                         using (NetworkStream stream = client.GetStream())
                         {
                             string requestMessage = $"Trigger {transactionID}";
+                            Console.WriteLine($"Trigger: {transactionID}");
                             byte[] requestData = Encoding.ASCII.GetBytes(requestMessage);
                             await stream.WriteAsync(requestData, 0, requestData.Length);
-
                             int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
                             string responseData = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-                            Console.WriteLine($"responseData: {responseData}");
+                            Console.WriteLine($"Raw response from server: {responseData}");
 
                         if (string.IsNullOrEmpty(responseData))
                             {
@@ -121,6 +104,4 @@ namespace TriggerLPR
             public string NewImagePath { get; set; }
             public string CroppedLPImagePath { get; set; } // New property for cropped license plate image path
         }
-
-
 }

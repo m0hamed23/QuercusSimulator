@@ -14,8 +14,8 @@ class LPRSimulator
 
     private const int ServerMainPort = 7050;    // Default port for sending responses
     private const int ServerConfigPort = 7040; // Port for sending ping responses
-    static uint lastid = 99;
-    static uint lastcarId = 66;
+    static uint lastid = 1;
+    static uint lastcarId = 1;
     static uint id = 1;
     static uint carId = 1;
 
@@ -147,21 +147,25 @@ class LPRSimulator
 
         if (messageType == 0x4300) // Trigger Request
         {
-
             IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
-            uint Id = 1;
+            uint Id = 13;
             uint UnitId = 1;
-            uint TriggerId = 1;
+            uint TriggerId = 11;
 
-            SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
+            await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
 
             //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
             //await SendTriggerRequestAsync(RealCameraEndPoint, triggerId);
             // Resend the trigger request to 10.0.0.110:6051
-            await Task.Delay(2000);
+            //await Task.Delay(500);
 
             LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
+
+            //LPNResult LastLPNResult = new LPNResult();
+
+            //LastLPNResult.ArabicLPN = "395BTN";
+
             //string newDetectedChars = "123ASD";
             //string newPrintableString = "123 ASD";
             if (LastLPNResult != null)
