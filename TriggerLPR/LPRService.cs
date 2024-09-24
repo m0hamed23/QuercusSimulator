@@ -37,15 +37,6 @@ namespace TriggerLPR
             private static string lastImagePath = null;
             private static string lastCroppedLPImagePath = null;
 
-            //private static readonly Dictionary<char, char> charMapping = new Dictionary<char, char>()
-            //{
-            //    {'A', 'أ'}, {'B', 'ب'}, {'G', 'ج'}, {'D', 'د'}, {'R', 'ر'},
-            //    {'S', 'س'}, {'C', 'ص'}, {'T', 'ط'}, {'E', 'ع'}, {'F', 'ف'},
-            //    {'K', 'ق'}, {'L', 'ل'}, {'M', 'م'}, {'N', 'ن'}, {'H', 'ﻫ'},
-            //    {'W', 'و'}, {'Y', 'ی'}, {'0', '٠'}, {'1', '١'}, {'2', '٢'},
-            //    {'3', '٣'}, {'4', '٤'}, {'5', '٥'}, {'6', '٦'}, {'7', '٧'},
-            //    {'8', '٨'}, {'9', '٩'}
-            //};
             private static readonly Dictionary<char, char> charMapping = new Dictionary<char, char>()
         {
             {'A', 'أ'}, {'B', 'ب'}, {'G', 'ج'}, {'D', 'د'}, {'R', 'ر'},
@@ -65,16 +56,7 @@ namespace TriggerLPR
             {
                 try
                 {
-                    bool IsOnline = await IsDeviceReachableAsync(ServerIP, 500);
-                    if (IsOnline)
-                    {
-                        //serverIpAddress = "127.0.0.1";
-                        serverIpAddress = ServerIP;
-                    }
-                    else
-                    {
-                        serverIpAddress = "127.0.0.1";
-                    }
+                    serverIpAddress = "127.0.0.1";
                     using (TcpClient client = new TcpClient())
                     {
                         await client.ConnectAsync(serverIpAddress, serverPort);
@@ -117,9 +99,12 @@ namespace TriggerLPR
                             }
                             else
                             {
+                                Console.WriteLine($"License Plate: Null");
+
                                 return null;
+
                             }
-                        }
+                    }
                     }
                 }
                 catch (Exception ex)
@@ -128,72 +113,6 @@ namespace TriggerLPR
                     return null;
                 }
             }
-            private static string ConvertToArabic(string lpn)
-            {
-                // Convert the LPN string to uppercase
-                lpn = lpn.ToUpper();
-
-                StringBuilder arabicLPN = new StringBuilder();
-                foreach (char c in lpn)
-                {
-                    if (charMapping.ContainsKey(c))
-                    {
-                        arabicLPN.Insert(0, charMapping[c]); // Insert Arabic characters at the beginning
-                    }
-                    else
-                    {
-                        arabicLPN.Insert(0, c); // Keep characters as is if not found in mapping
-                    }
-                }
-                return arabicLPN.ToString();
-            }
-            public static async Task<bool> IsDeviceReachableAsync(string ipAddress, int timeout)
-            {
-                try
-                {
-                    using (Ping ping = new Ping())
-                    {
-                        PingReply reply = await ping.SendPingAsync(ipAddress, timeout);
-                        if (reply.Status != IPStatus.Success)
-                        {
-                            // Log when the device is not reachable
-                            //Log.Information($"Device {ipAddress} is not reachable. Ping result: {(reply.Status).ToString()}");
-                        }
-                        return reply.Status == IPStatus.Success;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log any exceptions that occur during the ping operation
-                    Console.WriteLine($"Exception occurred while pinging {ipAddress}: {ex.Message}");
-                    return false;
-                }
-            }
-            public static string ConvertToArabicNumbers(string lpn)
-            {
-                // Convert the LPN string to uppercase
-                lpn = lpn.ToUpper();
-
-                StringBuilder arabicLPN = new StringBuilder();
-                foreach (char c in lpn)
-                {
-                    if (charMappingArNumbers.ContainsKey(c))
-                    {
-                        arabicLPN.Append(charMappingArNumbers[c]); // Append Arabic characters
-                    }
-                    else
-                    {
-                        arabicLPN.Append(c); // Keep characters as is if not found in mapping
-                    }
-                }
-
-                // Reverse the StringBuilder content
-                //ReverseStringBuilder(arabicLPN);
-
-                return arabicLPN.ToString();
-            }
-
-
         }
         public class LPNResult
         {

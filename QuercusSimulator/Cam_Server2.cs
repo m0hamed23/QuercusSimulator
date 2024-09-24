@@ -14,8 +14,8 @@ class LPRSimulator
 
     private const int ServerMainPort = 7050;    // Default port for sending responses
     private const int ServerConfigPort = 7040; // Port for sending ping responses
-    static uint lastid = 77;
-    static uint lastcarId = 55;
+    static uint lastid = 99;
+    static uint lastcarId = 66;
     static uint id = 1;
     static uint carId = 1;
 
@@ -122,7 +122,7 @@ class LPRSimulator
                 response = CreateStatusResponse(message);
                 break;
             case 0x4300: // Trigger Request
-                await ResendTriggerRequest(message);
+                //await ResendTriggerRequest(message);
                 response = CreateTriggerResponse(message);
                 break;
             case 0x4700: // LPN Image Request
@@ -147,9 +147,14 @@ class LPRSimulator
 
         if (messageType == 0x4300) // Trigger Request
         {
+
+            IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
+            uint Id = 1;
+            uint UnitId = 1;
+            uint TriggerId = 1;
+
+            SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
-            uint triggerId = BitConverter.ToUInt32(message, 17);
-            uint unitId = BitConverter.ToUInt32(message, 1);
 
             //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
             //await SendTriggerRequestAsync(RealCameraEndPoint, triggerId);
@@ -161,6 +166,9 @@ class LPRSimulator
             //string newPrintableString = "123 ASD";
             if (LastLPNResult != null)
             {
+                uint triggerId = BitConverter.ToUInt32(message, 17);
+                uint unitId = BitConverter.ToUInt32(message, 1);
+
                 string newDetectedChars = LastLPNResult.ArabicLPN;
                 string newPrintableString = newDetectedChars;
                 Console.WriteLine($"newDetectedChars:{newDetectedChars}");
@@ -440,31 +448,39 @@ class LPRSimulator
     //    await udpClient.SendAsync(request, request.Length, remoteEndPoint);
     //    LogMessage("Trigger Request", "Camera", request);
     //}
-    private static async Task SendTriggerRequestAsync(IPEndPoint remoteEndPoint, uint triggerId)
+    private static async Task SendTriggerRequestAsync(IPEndPoint remoteEndPoint, uint unitId, uint Id, uint triggerId)
     {
         using (var udpClient = new UdpClient())
         {
-            byte[] request = new byte[19];
-            // STX (1 byte)
-            request[0] = 0x02;
-            // Unit ID (4 bytes) - Use a hardcoded or predefined Unit ID
-            BitConverter.GetBytes(1).CopyTo(request, 1);
-            // Size (4 bytes) - Fixed size of 19 bytes for trigger request
-            BitConverter.GetBytes(19).CopyTo(request, 5);
-            // Type (2 bytes) - Trigger Request (0x4300 in little-endian)
+            byte[] request = new byte[23];
+            request[0] = 0x02; // STX
+
+            // UnitId (4 bytes, little endian)
+            BitConverter.GetBytes(unitId).CopyTo(request, 1);
+
+            // Size (4 bytes, little endian, always 23)
+            BitConverter.GetBytes(23).CopyTo(request, 5);
+
+            // Type (2 bytes, little endian, always 0x4300)
             request[9] = 0x43;
             request[10] = 0x00;
-            // Version (2 bytes) - Use version 1.0 for example
-            BitConverter.GetBytes((short)1).CopyTo(request, 11);
-            // ID (4 bytes) - Set an ID (unique for each conversation)
-            BitConverter.GetBytes(triggerId).CopyTo(request, 13);
-            // BCC (Block Check Character) - XOR from STX to the last byte before BCC
-            request[17] = CalculateXOR(request, 0, 17);
-            // ETX (1 byte) - End of message
-            request[18] = 0x03;
-            // Send the request
+
+            // Version (2 bytes, little endian, make it 0)
+            BitConverter.GetBytes((ushort)0).CopyTo(request, 11);
+
+            // ID (4 bytes, little endian, parameter)
+            BitConverter.GetBytes(Id).CopyTo(request, 13);
+
+            // Trigger ID (4 bytes, little endian, parameter)
+            BitConverter.GetBytes(triggerId).CopyTo(request, 17);
+
+            // Calculate BCC (XOR from STX to the last data byte before ETX)
+            request[21] = CalculateXOR(request, 0, 21);
+
+            request[22] = 0x03; // ETX
+
             await udpClient.SendAsync(request, request.Length, remoteEndPoint);
-            LogMessage("Trigger Request", "Camera", request);
+            Console.WriteLine($"Raw request sent (hex): {BitConverter.ToString(request).Replace("-", "")}");
         }
     }
     private static async Task SendLPNImageRequestAsync(UdpClient udpClient, IPEndPoint remoteEndPoint, uint carId)
