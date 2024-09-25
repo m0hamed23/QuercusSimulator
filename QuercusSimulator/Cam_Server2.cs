@@ -48,10 +48,7 @@ class LPRSimulator
     //        {
     //            try
     //            {
-    //                // Listen for incoming messages on the UDP port
-    //                var result = await udpClient.ReceiveAsync();
-    //                var message = result.Buffer;
-    //                var remoteEndPoint = result.RemoteEndPoint;
+    //                var (message, remoteEndPoint) = await UdpLargeMessageHandler.ReceiveLargeMessageAsync(udpClient);
 
     //                if (message == null || message.Length < 19)
     //                {
@@ -59,14 +56,11 @@ class LPRSimulator
     //                    continue;
     //                }
 
-    //                // Process the message based on the type
-    //                //await ProcessCameraMessageAsync(udpClient, message, remoteEndPoint);
     //                await ProcessCameraMessageAsync(udpClient, message);
-
     //            }
     //            catch (Exception ex)
     //            {
-    //                Console.WriteLine($"Error receiving UDP message: {ex.Message}");
+    //                Console.WriteLine($"Error in camera simulator: {ex.Message}");
     //            }
     //        }
     //    }
@@ -89,7 +83,11 @@ class LPRSimulator
                         continue;
                     }
 
-                    await ProcessCameraMessageAsync(udpClient, message);
+                    // Process each message in a separate task to handle concurrency
+                    _ = Task.Run(async () =>
+                    {
+                        await ProcessCameraMessageAsync(udpClient, message);
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -98,6 +96,7 @@ class LPRSimulator
             }
         }
     }
+
     private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message)
     {
         if (message.Length < 19)
@@ -311,11 +310,29 @@ class LPRSimulator
         byte[] imageData = File.ReadAllBytes(imagePath);
         int imageSize = imageData.Length;
 
-        // Define ROI coordinates (example values)
-        ushort roiTop = 100;
-        ushort roiLeft = 200;
-        ushort roiBottom = 150;
-        ushort roiRight = 300;
+
+        int imageWidth = 1280;
+        int imageHeight = 600;
+
+        // Define center coordinates
+        int centerX = imageWidth / 2; // 640
+        int centerY = imageHeight / 2; // 300
+
+        // Define ROI size (50% of the image size)
+        int roiWidth = (int)(imageWidth * 0.5); // 640
+        int roiHeight = (int)(imageHeight * 0.5); // 300
+
+        // Calculate ROI coordinates
+        ushort roiLeft = (ushort)(centerX - (roiWidth / 2)); // 320
+        ushort roiRight = (ushort)(centerX + (roiWidth / 2)); // 960
+        ushort roiTop = (ushort)(centerY - (roiHeight / 2)); // 150
+        ushort roiBottom = (ushort)(centerY + (roiHeight / 2)); // 450
+
+        //// Define ROI coordinates (example values)
+        //ushort roiTop = 100;
+        //ushort roiLeft = 200;
+        //ushort roiBottom = 150;
+        //ushort roiRight = 300;
 
         // Calculate total response size
         int totalSize = 1 + 4 + 4 + 2 + 2 + 4 + 8 + 4 + imageSize + 1 + 1;
