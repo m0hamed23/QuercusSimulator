@@ -1,4 +1,42 @@
 ﻿
+//namespace TriggerLPR
+//{
+//    class Program
+//    {
+//        static async Task Main(string[] args)
+//        {
+//            try
+//            {
+//                // Simulate capturing the LPN from a device with IP address 10.0.0.111
+//                LPNResult lastLPNResult = await TriggerLPR.LPRService.CaptureLPNAsync("10.0.0.111");
+
+//                if (lastLPNResult != null)
+//                {
+//                    // Store the detected characters from the LPN result
+//                    string newDetectedChars = lastLPNResult.ArabicLPN;
+//                    string newPrintableString = string.Empty;
+
+//                    // Display the detected characters
+//                    Console.WriteLine($"newDetectedChars: {newDetectedChars}");
+//                }
+//                else
+//                {
+//                    Console.WriteLine("lastLPNResult is null");
+
+//                }
+
+//            }
+//            catch (Exception ex)
+//            {
+//                Console.WriteLine($"An error occurred: {ex.Message}");
+//            }
+//        }
+//    }
+//}
+using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
+
 namespace TriggerLPR
 {
     class Program
@@ -7,8 +45,20 @@ namespace TriggerLPR
         {
             try
             {
+                // Create a Stopwatch instance to measure the response time
+                Stopwatch stopwatch = new Stopwatch();
+
+                // Start measuring time
+                stopwatch.Start();
+
                 // Simulate capturing the LPN from a device with IP address 10.0.0.111
                 LPNResult lastLPNResult = await TriggerLPR.LPRService.CaptureLPNAsync("10.0.0.111");
+
+                // Stop the stopwatch as soon as the capture process completes
+                stopwatch.Stop();
+
+                // Calculate the elapsed time
+                TimeSpan responseTime = stopwatch.Elapsed;
 
                 if (lastLPNResult != null)
                 {
@@ -16,20 +66,14 @@ namespace TriggerLPR
                     string newDetectedChars = lastLPNResult.ArabicLPN;
                     string newPrintableString = string.Empty;
 
-                    // Display the detected characters
+                    // Display the detected characters and response time
                     Console.WriteLine($"newDetectedChars: {newDetectedChars}");
-
-                    // You can format `newPrintableString` as needed, for now, it's empty
-                    // Example: Format the newPrintableString if required
-
-                    Console.WriteLine($"newPrintableString: {newDetectedChars}");
+                    Console.WriteLine($"Response Time: {responseTime.TotalMilliseconds} ms");
                 }
                 else
                 {
                     Console.WriteLine("lastLPNResult is null");
-
                 }
-
             }
             catch (Exception ex)
             {
@@ -38,7 +82,6 @@ namespace TriggerLPR
         }
     }
 }
-
 //using System;
 //using System.Net;
 //using System.Net.Sockets;

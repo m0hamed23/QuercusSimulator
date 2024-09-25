@@ -152,7 +152,7 @@ class LPRSimulator
             uint UnitId = 1;
             uint TriggerId = 11;
 
-            await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
+            //await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
 
             //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);

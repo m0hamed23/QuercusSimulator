@@ -24,7 +24,6 @@ using System.Threading.Tasks;
 using System.Windows;
 namespace TriggerLPR
 {
-
         public static class LPRService
         {
             private static string serverIpAddress = "127.0.0.1"; // Server IP address
@@ -97,6 +96,7 @@ namespace TriggerLPR
                 }
             }
         }
+
         public class LPNResult
         {
             public string ArabicLPN { get; set; }
