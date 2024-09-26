@@ -6,66 +6,34 @@ using System.Threading.Tasks;
 
 class LPRSimulator
 {
-    private const int CameraMainPort = 7051; // First port to listen on
-    private const int CameraConfigPort = 7041; // Second port to listen on
-    private const string ServerIP = "10.0.0.10";
-    private const string RealCamIP = "10.0.0.110";
-    private const int RealCamMainPort = 6051; // Second port to listen on
+    private const int SimulatorMainPort1 = 7051; // As seen by the server
+    private const int SimulatorConfigPort1 = 7041; // As seen by the server
+    private const int SimulatorMainPort2 = 6050; // As seen by the real camera
 
+    private const string CameraIP = "10.0.0.110";
+    private const int CameraMainPort = 6051; // Second port to listen on
+
+    private const string ServerIP = "10.0.0.10";
     private const int ServerMainPort = 7050;    // Default port for sending responses
     private const int ServerConfigPort = 7040; // Port for sending ping responses
+
     static uint lastid = 1;
     static uint lastcarId = 1;
     static uint id = 1;
     static uint carId = 1;
-
-
     static async Task Main(string[] args)
     {
         Console.WriteLine("LPR Simulator starting...");
 
-        //await SendTriggerRequestAsync(udpClient, remoteEndPoint, triggerId: 1);
-        //await SendLPNImageRequestAsync(udpClient, remoteEndPoint, carId: 100);
-
-        // Start the camera simulator
-        //await RunCameraSimulatorAsync();
-
         // Start the camera simulators for both ports
-        Task listenOnPort1 = RunCameraSimulatorAsync(CameraMainPort);
-        Task listenOnPort2 = RunCameraSimulatorAsync(CameraConfigPort);
+        Task listenOnPort1 = RunSimulatorAsync(SimulatorMainPort1);
+        Task listenOnPort2 = RunSimulatorAsync(SimulatorConfigPort1);
+        Task listenForCameraResponse = ListenForCameraResponseAsync();
 
-        // Wait for both tasks to complete (they run indefinitely)
-        await Task.WhenAll(listenOnPort1, listenOnPort2);
-
+        // Wait for all tasks to complete (they run indefinitely)
+        await Task.WhenAll(listenOnPort1, listenOnPort2, listenForCameraResponse);
     }
-    //private static async Task RunCameraSimulatorAsync(int port)
-    //{
-    //    using (var udpClient = new UdpClient(port))
-    //    {
-    //        Console.WriteLine($"Camera simulator listening on port {port}");
-
-    //        while (true)
-    //        {
-    //            try
-    //            {
-    //                var (message, remoteEndPoint) = await UdpLargeMessageHandler.ReceiveLargeMessageAsync(udpClient);
-
-    //                if (message == null || message.Length < 19)
-    //                {
-    //                    Console.WriteLine("Invalid or too short UDP message. Ignoring.");
-    //                    continue;
-    //                }
-
-    //                await ProcessCameraMessageAsync(udpClient, message);
-    //            }
-    //            catch (Exception ex)
-    //            {
-    //                Console.WriteLine($"Error in camera simulator: {ex.Message}");
-    //            }
-    //        }
-    //    }
-    //}
-    private static async Task RunCameraSimulatorAsync(int port)
+    private static async Task RunSimulatorAsync(int port)
     {
         using (var udpClient = new UdpClient(port))
         {
@@ -86,7 +54,7 @@ class LPRSimulator
                     // Process each message in a separate task to handle concurrency
                     _ = Task.Run(async () =>
                     {
-                        await ProcessCameraMessageAsync(udpClient, message);
+                        await ProcessZRMessageAsync(udpClient, message);
                     });
                 }
                 catch (Exception ex)
@@ -97,7 +65,7 @@ class LPRSimulator
         }
     }
 
-    private static async Task ProcessCameraMessageAsync(UdpClient udpClient, byte[] message)
+    private static async Task ProcessZRMessageAsync(UdpClient udpClient, byte[] message)
     {
         if (message.Length < 19)
         {
@@ -146,65 +114,109 @@ class LPRSimulator
 
         if (messageType == 0x4300) // Trigger Request
         {
-            IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
+            IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraMainPort);
             uint Id = 13;
             uint UnitId = 1;
             uint TriggerId = 11;
 
-            //await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
+            await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, TriggerId);
             // Extract Trigger ID from the message data (4 bytes starting at index 17)
 
             //IPEndPoint RealCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
-            //await SendTriggerRequestAsync(RealCameraEndPoint, triggerId);
+            //await SendTriggerRequestAsync(RealCameraEndPoint, TriggerId);
             // Resend the trigger request to 10.0.0.110:6051
             //await Task.Delay(500);
 
+        }
+    }
+    private static async Task ListenForCameraResponseAsync()
+    {
+        using (var udpClient = new UdpClient(SimulatorMainPort2))
+        {
+            Console.WriteLine($"Listening for camera responses on port {SimulatorMainPort2}");
+
+            while (true)
+            {
+                try
+                {
+                    var result = await udpClient.ReceiveAsync();
+                    await ProcessCameraResponseAsync(result.Buffer);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error receiving camera response: {ex.Message}");
+                }
+            }
+        }
+    }
+    private static async Task ProcessCameraResponseAsync(byte[] response)
+    {
+        if (response.Length < 11)  // Ensure the response is long enough to contain the message type
+        {
+            Console.WriteLine("Response too short to process");
+            return;
+        }
+
+        // Extract the message type (assuming it's at the same position as in the request messages)
+        ushort messageType = BitConverter.ToUInt16(response, 9);
+        if (BitConverter.IsLittleEndian)
+        {
+            messageType = (ushort)((messageType << 8) | (messageType >> 8));
+        }
+
+        Console.WriteLine($"Received response from camera on port 6050. Message type: 0x{messageType:X4}");
+
+        if (messageType == 0x0200)  // Check if the message type is 0x0200
+        {
+            await SendLPNAsync(response);
+        }
+        else
+        {
+            Console.WriteLine($"Received message type 0x{messageType:X4} is not supported for processing");
+        }
+    }
+
+    private static async Task SendLPNAsync(byte[] response)
+    {
+        try
+        {
             LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
 
-            //LPNResult LastLPNResult = new LPNResult();
-
-            //LastLPNResult.ArabicLPN = "395BTN";
-
-            //string newDetectedChars = "123ASD";
-            //string newPrintableString = "123 ASD";
             if (LastLPNResult != null)
             {
-                uint triggerId = BitConverter.ToUInt32(message, 17);
-                uint unitId = BitConverter.ToUInt32(message, 1);
+                uint triggerId = BitConverter.ToUInt32(response, 17);  // Adjust index if needed
+                uint unitId = BitConverter.ToUInt32(response, 1);      // Adjust index if needed
 
                 string newDetectedChars = LastLPNResult.ArabicLPN;
                 string newPrintableString = newDetectedChars;
                 Console.WriteLine($"newDetectedChars:{newDetectedChars}");
-                // Separate digits and letters
-                //string numbers = string.Concat(newDetectedChars.Where(char.IsDigit));
-                //string letters = string.Concat(newDetectedChars.Where(char.IsLetter));
-
-                //// Combine with a space in between
-                //newPrintableString = numbers + " " + letters;
 
                 id = lastid + 2;
                 carId = lastcarId + 1;
                 lastid = id;
                 lastcarId = carId;
 
-                //string detectedChars = "395BTN";
-
-                // Create the license plate info message with the extracted Unit ID and Trigger ID
                 byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, triggerId, newDetectedChars);
-                await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
 
-                // Display the raw message as a hexadecimal string
-                //Console.WriteLine("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+                // Create a new UdpClient for sending the response
+                using (var udpClient = new UdpClient())
+                {
+                    IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(ServerIP), ServerMainPort);
+                    await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+                    Console.WriteLine($"Sent LPN info message to {remoteEndPoint}");
+                }
             }
             else
             {
                 Console.WriteLine($"LastLPNResult is null");
-
-                
             }
-
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error processing LPN response: {ex.Message}");
         }
     }
+
     private static async Task ResendTriggerRequest(byte[] originalMessage)
     {
         IPEndPoint realCameraEndPoint = new IPEndPoint(IPAddress.Parse("10.0.0.110"), 6051);
