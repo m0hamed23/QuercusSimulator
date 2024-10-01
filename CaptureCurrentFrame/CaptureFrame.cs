@@ -1,5 +1,6 @@
 ﻿
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -12,7 +13,6 @@ class LPRCameraImageCapture
     private const int CameraReceivePort = 6050; // Port to receive image
     private const string OutputPath = @"D:\currentimage.jpg";
     private const int MaxUdpSize = 65507; // Maximum UDP packet size
-
     static async Task Main(string[] args)
     {
         Console.WriteLine("LPR Camera Image Capture starting...");
@@ -25,28 +25,27 @@ class LPRCameraImageCapture
                 IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraSendPort);
 
                 Console.WriteLine($"Sending request to camera at {CameraIP}:{CameraSendPort}");
-                
-                // Example usage for activating the LED
-                //byte[] activateFocusRequest = CreateActivateFocusRequest(5);
-                //await SendActivateFocusRequestAsync("10.0.0.110", 6051, activateFocusRequest);
 
-                //// Activate the LED
-                //Console.WriteLine("Activating the LED panel...");
-                //byte[] activateFocusRequest = CreateActivateFocusRequest(2); // Activate for 5 seconds
-                //await udpClient.SendAsync(activateFocusRequest, activateFocusRequest.Length);
-                //Console.WriteLine("LED panel activated for 5 seconds");
-
-                // Wait briefly to allow the LED to activate
-                //await Task.Delay(500);
-
-                // Send CurrentFrame request
+                // Create the request to get the current frame
                 byte[] request = CreateCurrentFrameRequest();
-                await udpClient.SendAsync(request, request.Length, remoteEndPoint); // Send request to camera
+
+                // Start the stopwatch to measure time
+                Stopwatch stopwatch = Stopwatch.StartNew();
+
+                // Send the request to the camera
+                await udpClient.SendAsync(request, request.Length, remoteEndPoint);
                 Console.WriteLine("Request sent to camera");
 
-                // Receive and process the response
+                // Receive the image data
                 byte[] imageData = await ReceiveCurrentFrameResponseAsync(udpClient);
+
+                // Stop the stopwatch after receiving the response
+                stopwatch.Stop();
                 Console.WriteLine($"Received {imageData.Length} bytes of image data");
+
+                // Calculate elapsed time
+                long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
+                Console.WriteLine($"Image retrieval took {elapsedMilliseconds} ms");
 
                 // Save the image
                 Directory.CreateDirectory(Path.GetDirectoryName(OutputPath));
@@ -65,77 +64,6 @@ class LPRCameraImageCapture
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
         }
     }
-    //private static async Task SendActivateFocusRequestAsync(string ipAddress, int port, byte[] request)
-    //{
-    //    using (UdpClient udpClient = new UdpClient())
-    //    {
-    //        // Send the request to the specified IP and port
-    //        IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(ipAddress), port);
-
-    //        try
-    //        {
-    //            // Sending the request
-    //            Console.WriteLine($"Sending ActivateFocusRequest to {ipAddress}:{port}...");
-    //            await udpClient.SendAsync(request, request.Length, remoteEndPoint);
-    //            Console.WriteLine("Request sent successfully.");
-    //        }
-    //        catch (SocketException ex)
-    //        {
-    //            Console.WriteLine($"SocketException: {ex.Message}");
-    //            Console.WriteLine($"ErrorCode: {ex.ErrorCode}");
-    //        }
-    //        catch (Exception ex)
-    //        {
-    //            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
-    //        }
-    //    }
-    //}
-
-    //private static byte[] CreateActivateFocusRequest(int timeInSeconds)
-    //{
-    //    byte[] request = new byte[21]; // Total size of the message
-
-    //    request[0] = 0x02; // STX (1 byte)
-
-    //    // Unit ID (4 bytes, little-endian)
-    //    byte[] unitIdBytes = BitConverter.GetBytes(1);
-    //    // Total Size (4 bytes, little-endian)
-    //    byte[] sizeBytes = BitConverter.GetBytes(21);
-    //    // Type (2 bytes, little-endian, type 73 for ActivateFocus)
-    //    byte[] typeBytes = BitConverter.GetBytes((ushort)73);
-    //    // Version (2 bytes, little-endian, version 0)
-    //    byte[] versionBytes = BitConverter.GetBytes((ushort)0);
-    //    // ID (4 bytes, little-endian, unique ID for the message, e.g., 12)
-    //    byte[] idBytes = BitConverter.GetBytes(2);
-    //    // Time (4 bytes, little-endian, duration for LED activation in seconds)
-    //    byte[] timeBytes = BitConverter.GetBytes(timeInSeconds);
-
-    //    if (!BitConverter.IsLittleEndian)
-    //    {
-    //        Array.Reverse(unitIdBytes);
-    //        Array.Reverse(sizeBytes);
-    //        Array.Reverse(typeBytes);
-    //        Array.Reverse(versionBytes);
-    //        Array.Reverse(idBytes);
-    //        Array.Reverse(timeBytes);
-    //    }
-
-    //    // Copy data to the request
-    //    unitIdBytes.CopyTo(request, 1);       // Unit ID (4 bytes) at offset 1
-    //    sizeBytes.CopyTo(request, 5);         // Size (4 bytes) at offset 5
-    //    typeBytes.CopyTo(request, 9);         // Type (2 bytes) at offset 9
-    //    versionBytes.CopyTo(request, 11);     // Version (2 bytes) at offset 11
-    //    idBytes.CopyTo(request, 13);          // ID (4 bytes) at offset 13
-    //    timeBytes.CopyTo(request, 17);        // Time (4 bytes) at offset 17
-
-    //    // Calculate BCC (XOR of all bytes from STX to the last data byte)
-    //    request[19] = CalculateXOR(request, 0, 19); // BCC at offset 19
-
-    //    // ETX (1 byte) at offset 20
-    //    request[20] = 0x03;
-
-    //    return request;
-    //}
 
     private static byte[] CreateCurrentFrameRequest()
     {
@@ -148,7 +76,7 @@ class LPRCameraImageCapture
         byte[] typeBytes = BitConverter.GetBytes((ushort)72);
         byte[] versionBytes = BitConverter.GetBytes((ushort)0);
         byte[] idBytes = BitConverter.GetBytes(10);
-        byte[] exposureTimeBytes = BitConverter.GetBytes(100000);
+        byte[] exposureTimeBytes = BitConverter.GetBytes(16000);
 
         if (!BitConverter.IsLittleEndian)
         {
@@ -227,13 +155,6 @@ class LPRCameraImageCapture
         return imageData;
     }
 
-    // Helper method to reverse byte order (endianness) for 4-byte integers
-    //private static int ReverseBytes(int value)
-    //{
-    //    byte[] bytes = BitConverter.GetBytes(value);
-    //    Array.Reverse(bytes);
-    //    return BitConverter.ToInt32(bytes, 0);
-    //}
 
     private static byte CalculateXOR(byte[] data, int start, int length)
     {

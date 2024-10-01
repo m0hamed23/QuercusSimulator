@@ -13,7 +13,7 @@ class LPRCameraImageCaptureAndBrightness
     private const int CameraSendPort = 6051;
     private const int CameraReceivePort = 6050;
     private const string OutputDirectory = @"D:\frames";
-    private const string DataLogFile = @"D:\image_data_log.txt";
+    private const string DataLogFile = @"D:\image_data_log2.txt";
     private const int MaxUdpSize = 65507;
     private const int UnitId = 1;
 
@@ -21,7 +21,7 @@ class LPRCameraImageCaptureAndBrightness
     {
         Console.WriteLine("LPR Camera Image Capture and Brightness Calculation starting...");
 
-        int[] exposureTimes = { 1000,4000,8000,16000, 30000, 60000, 75000, 100000 , 110000, 125000, 150000, 175000, 200000, 225000, 250000, 275000,400000,500000 };
+        int[] exposureTimes = { 1000,4000,8000,16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000 , 110000, 125000, 150000, 175000, 200000, 225000, 250000 };
         int[] ids = { 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146,148,150,152,154 };
 
         try
