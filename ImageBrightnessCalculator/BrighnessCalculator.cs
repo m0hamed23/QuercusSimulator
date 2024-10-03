@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -23,6 +24,8 @@ class LPRCameraImageCaptureAndBrightness
 
         int[] exposureTimes = { 1000,4000,8000,16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000 , 110000, 125000, 150000, 175000, 200000, 225000, 250000 };
         int[] ids = { 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146,148,150,152,154 };
+        Stopwatch stopwatch = new Stopwatch(); // Add this line
+        stopwatch.Start(); // Add this line
 
         try
         {
@@ -62,6 +65,11 @@ class LPRCameraImageCaptureAndBrightness
         {
             Console.WriteLine($"An unexpected error occurred: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            stopwatch.Stop(); // Add this line
+            Console.WriteLine($"Total time taken: {stopwatch.Elapsed}"); // Add this line
         }
     }
 
