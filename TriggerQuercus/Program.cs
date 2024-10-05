@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 class CameraTriggerTester
 {
-    private const string CameraIP = "10.0.0.110";
+    private const string CameraIP = "10.0.0.121";
     private const int CameraPort = 6051;
 
     static async Task Main(string[] args)
@@ -27,7 +27,7 @@ class CameraTriggerTester
                 {
                     IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraPort);
                     uint Id = 1;
-                    uint UnitId = 1;
+                    uint UnitId = 2;
 
                     await SendTriggerRequestAsync(cameraEndPoint, UnitId, Id, triggerId); // Using UnitId = 1 as per the requirement
                     Console.WriteLine($"Trigger request sent with ID: {triggerId}");
