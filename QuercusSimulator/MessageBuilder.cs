@@ -14,6 +14,7 @@ namespace QuercusSimulator
         public static string ImagePath = JsonConfigManager.GetValueForKey("ImagePath");
         public static int ImageWidth = Convert.ToInt32(JsonConfigManager.GetValueForKey("ImageWidth"));
         public static int ImageHeight = Convert.ToInt32(JsonConfigManager.GetValueForKey("ImageHeight"));
+        private const int MaxUdpSize = 65507;
 
         public static byte[] CreateStatusResponse(byte[] request)
         {
@@ -303,6 +304,83 @@ namespace QuercusSimulator
             await udpClient.SendAsync(request, request.Length, remoteEndPoint);
             LogMessage("LPN Image Request", "Camera", request);
         }
+
+        public static byte[] CreateCurrentFrameRequest(int exposureTime, int id, uint UnitId)
+        {
+            byte[] request = new byte[23];
+
+            request[0] = 0x02; // STX
+
+            byte[] unitIdBytes = BitConverter.GetBytes(UnitId);
+            byte[] sizeBytes = BitConverter.GetBytes(23);
+            byte[] typeBytes = BitConverter.GetBytes((ushort)72);
+            byte[] versionBytes = BitConverter.GetBytes((ushort)0);
+            byte[] idBytes = BitConverter.GetBytes(id);
+            byte[] exposureTimeBytes = BitConverter.GetBytes(exposureTime);
+
+            if (!BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(unitIdBytes);
+                Array.Reverse(sizeBytes);
+                Array.Reverse(typeBytes);
+                Array.Reverse(versionBytes);
+                Array.Reverse(idBytes);
+                Array.Reverse(exposureTimeBytes);
+            }
+
+            unitIdBytes.CopyTo(request, 1);
+            sizeBytes.CopyTo(request, 5);
+            typeBytes.CopyTo(request, 9);
+            versionBytes.CopyTo(request, 11);
+            idBytes.CopyTo(request, 13);
+            exposureTimeBytes.CopyTo(request, 17);
+
+            request[21] = CalculateXOR(request, 0, 21);
+            request[22] = 0x03; // ETX
+
+            return request;
+        }
+        //private static byte CalculateXOR(byte[] data, int start, int length)
+        //{
+        //    byte xor = 0;
+        //    for (int i = start; i < start + length; i++)
+        //    {
+        //        xor ^= data[i];
+        //    }
+        //    return xor;
+        //}
+
+        public static async Task<byte[]> ReceiveCurrentFrameResponseAsync(UdpClient udpClient)
+        {
+
+            UdpReceiveResult result = await udpClient.ReceiveAsync();
+            byte[] response = result.Buffer;
+
+            if (response.Length < 21)
+                throw new Exception("Incomplete response received");
+
+            if (response[0] != 0x02)
+                throw new Exception("Invalid STX in response");
+
+            int totalSize = BitConverter.ToInt32(response, 5);
+            ushort messageType = BitConverter.ToUInt16(response, 9);
+            int imageSize = BitConverter.ToInt32(response, 17);
+
+            if (messageType != 136)
+                throw new Exception($"Unexpected message type: {messageType}");
+
+            if (imageSize <= 0 || imageSize > MaxUdpSize)
+                throw new Exception("Invalid or corrupted image size");
+
+            if (response.Length < totalSize)
+                throw new Exception("Incomplete message received");
+
+            byte[] imageData = new byte[imageSize];
+            Buffer.BlockCopy(response, 21, imageData, 0, imageSize);
+
+            return imageData;
+        }
+
         public static byte CalculateXOR(byte[] data, int start, int length)
         {
             byte xor = 0;

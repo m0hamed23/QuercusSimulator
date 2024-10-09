@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using Serilog;
 using static QuercusSimulator.MessageBuilder;
-
-    namespace QuercusSimulator
+namespace QuercusSimulator
 {
     class LPRSimulator
     {
@@ -165,76 +164,85 @@ using static QuercusSimulator.MessageBuilder;
                 // Get RealCam IP and Port based on UnitId
                 (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
 
-                if (realCamIP != null && realCamMainPort != 0)
-                {
-                    cameraEndPoint = new IPEndPoint(IPAddress.Parse(realCamIP), realCamMainPort);
-                    Log.Information($"Camera IP: {realCamIP}, Port: {realCamMainPort}");
-                    await SendTriggerRequestAsync(cameraEndPoint, unitId, Id, TriggerId);
-                }
-                else
-                {
-                    Log.Error($"Invalid camera configuration for UnitId {unitId}");
-                }
+                //if (realCamIP != null && realCamMainPort != 0)
+                //{
+                //    cameraEndPoint = new IPEndPoint(IPAddress.Parse(realCamIP), realCamMainPort);
+                //    Log.Information($"Camera IP: {realCamIP}, Port: {realCamMainPort}");
+                //    await SendTriggerRequestAsync(cameraEndPoint, unitId, Id, TriggerId);
+                //}
+                //else
+                //{
+                //    Log.Error($"Invalid camera configuration for UnitId {unitId}");
+                //}
 
                 //IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
 
                 //LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
-                LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
+                int cameraSendPort = 6051;
+                int cameraReceivePort = 6050;
+                string OutputDirectory = @"D:\LPR\EventImages";
+                int[] exposureTimes = { 75000, 200000, 500000 };
+                int[] ids = { 120, 122, 124 };
 
-                
-                //LPNResult LastLPNResult = new LPNResult();
-
-                //LastLPNResult.ArabicLPN = "395BTN";
-
-                //string newDetectedChars = "123ASD";
-                //string newPrintableString = "123 ASD";
-                if (LastLPNResult != null)
-                //if (true)
-
+                await CurrentFrame.GetAndSaveImages(unitId, realCamIP, exposureTimes, ids, OutputDirectory, cameraSendPort, cameraReceivePort);
                 {
-                    //uint triggerId = BitConverter.ToUInt32(message, 17);
-                    //uint unitId = BitConverter.ToUInt32(message, 1);
-
-                    string newDetectedChars = LastLPNResult.ArabicLPN;
-                    //string newDetectedChars = "395BTN";
-
-                    string newPrintableString = newDetectedChars;
-                    Log.Information($"newDetectedChars:{newDetectedChars}");
-                    // Separate digits and letters
-                    //string numbers = string.Concat(newDetectedChars.Where(char.IsDigit));
-                    //string letters = string.Concat(newDetectedChars.Where(char.IsLetter));
-
-                    //// Combine with a space in between
-                    //newPrintableString = numbers + " " + letters;
-
-                    id = lastid + 2;
-                    carId = lastcarId + 1;
-                    lastid = id;
-                    lastcarId = carId;
-
-                    //string detectedChars = "395BTN";
-
-                    // Create the license plate info message with the extracted Unit ID and Trigger ID
-                    byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, TriggerId, newDetectedChars);
-                    await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+                    LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
 
 
-                    // Display the raw message as a hexadecimal string
-                    //Log.Information("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+                    //LPNResult LastLPNResult = new LPNResult();
+
+                    //LastLPNResult.ArabicLPN = "395BTN";
+
+                    //string newDetectedChars = "123ASD";
+                    //string newPrintableString = "123 ASD";
+                    if (LastLPNResult != null)
+                    //if (true)
+
+                    {
+                        //uint triggerId = BitConverter.ToUInt32(message, 17);
+                        //uint unitId = BitConverter.ToUInt32(message, 1);
+
+                        string newDetectedChars = LastLPNResult.ArabicLPN;
+                        //string newDetectedChars = "395BTN";
+
+                        string newPrintableString = newDetectedChars;
+                        Log.Information($"newDetectedChars:{newDetectedChars}");
+                        // Separate digits and letters
+                        //string numbers = string.Concat(newDetectedChars.Where(char.IsDigit));
+                        //string letters = string.Concat(newDetectedChars.Where(char.IsLetter));
+
+                        //// Combine with a space in between
+                        //newPrintableString = numbers + " " + letters;
+
+                        id = lastid + 2;
+                        carId = lastcarId + 1;
+                        lastid = id;
+                        lastcarId = carId;
+
+                        //string detectedChars = "395BTN";
+
+                        // Create the license plate info message with the extracted Unit ID and Trigger ID
+                        byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, TriggerId, newDetectedChars);
+                        await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+
+
+                        // Display the raw message as a hexadecimal string
+                        //Log.Information("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
+                    }
+                    else
+                    {
+                        Log.Information($"LastLPNResult is null");
+
+
+                    }
+                    Log.Information($"############# sent LPN time: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+
+
                 }
-                else
-                {
-                    Log.Information($"LastLPNResult is null");
-
-
-                }
-                Log.Information($"############# sent LPN time: {DateTime.Now.ToString("HH:mm:ss.fff")}");
-
-
             }
+
+
         }
 
-
     }
-
 }

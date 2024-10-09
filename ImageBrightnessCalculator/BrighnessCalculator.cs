@@ -1,195 +1,199 @@
-﻿////using System;
-////using System.Diagnostics;
-////using System.IO;
-////using System.Net;
-////using System.Net.Sockets;
-////using System.Threading.Tasks;
-////using SixLabors.ImageSharp;
-////using SixLabors.ImageSharp.PixelFormats;
-////using SixLabors.ImageSharp.Processing;
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 
-////class LPRCameraImageCaptureAndBrightness
-////{
-////    private const string CameraIP = "10.0.0.110";
-////    private const int CameraSendPort = 6051;
-////    private const int CameraReceivePort = 6050;
-////    private const string OutputDirectory = @"D:\frames";
-////    private const string DataLogFile = @"D:\image_data_log2.txt";
-////    private const int MaxUdpSize = 65507;
-////    private const int UnitId = 1;
+class LPRCameraImageCaptureAndBrightness
+{
+    private const string CameraIP = "10.0.0.110";
+    private const int CameraSendPort = 6051;
+    private const int CameraReceivePort = 6050;
+    private const string OutputDirectory = @"D:\frames";
+    private const string DataLogFile = @"D:\image_data_log2.txt";
+    private const int MaxUdpSize = 65507;
+    private const int UnitId = 1;
 
-////    static async Task Main(string[] args)
-////    {
-////        Console.WriteLine("LPR Camera Image Capture and Brightness Calculation starting...");
+    static async Task Main(string[] args)
+    {
+        Console.WriteLine("LPR Camera Image Capture and Brightness Calculation starting...");
 
-////        int[] exposureTimes = { 1000,4000,8000,16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000 , 110000, 125000, 150000, 175000, 200000, 225000, 250000 };
-////        int[] ids = { 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146,148,150,152,154 };
-////        Stopwatch stopwatch = new Stopwatch(); // Add this line
-////        stopwatch.Start(); // Add this line
+        //int[] exposureTimes = { 1000, 4000, 8000, 16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000, 110000, 125000, 150000, 175000, 200000, 225000, 250000 };
+        //int[] ids = { 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154 };
+        int[] exposureTimes = { 75000,200000, 500000 };
+        int[] ids = { 120, 122, 124 };
 
-////        try
-////        {
-////            using (UdpClient udpClient = new UdpClient(CameraReceivePort))
-////            {
-////                udpClient.Client.ReceiveTimeout = 5000;
-////                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraSendPort);
+        Stopwatch stopwatch = new Stopwatch(); // Add this line
+        stopwatch.Start(); // Add this line
 
-////                Directory.CreateDirectory(OutputDirectory);
-////                File.WriteAllText(DataLogFile, "UnitID,Timestamp,ExposureTime,Brightness,FilePath\n");
+        try
+        {
+            using (UdpClient udpClient = new UdpClient(CameraReceivePort))
+            {
+                udpClient.Client.ReceiveTimeout = 5000;
+                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(CameraIP), CameraSendPort);
 
-////                for (int i = 0; i < 18; i++)
-////                {
-////                    DateTime currentTime = DateTime.Now;
-////                    string timestamp = currentTime.ToString("yyyyMMdd_HHmmss");
+                Directory.CreateDirectory(OutputDirectory);
+                File.WriteAllText(DataLogFile, "UnitID,Timestamp,ExposureTime,Brightness,FilePath\n");
 
-////                    byte[] request = CreateCurrentFrameRequest(exposureTimes[i], ids[i]);
-////                    await udpClient.SendAsync(request, request.Length, remoteEndPoint);
-////                    Console.WriteLine($"Request sent to camera for image {i + 1}");
+                for (int i = 0; i < 18; i++)
+                {
+                    DateTime currentTime = DateTime.Now;
+                    string timestamp = currentTime.ToString("yyyyMMdd_HHmmss");
 
-////                    byte[] imageData = await ReceiveCurrentFrameResponseAsync(udpClient);
-////                    Console.WriteLine($"Received {imageData.Length} bytes of image data for image {i + 1}");
+                    byte[] request = CreateCurrentFrameRequest(exposureTimes[i], ids[i]);
+                    await udpClient.SendAsync(request, request.Length, remoteEndPoint);
+                    Console.WriteLine($"Request sent to camera for image {i + 1}");
 
-////                    string outputPath = await SaveImageAndCalculateBrightness(imageData, timestamp, exposureTimes[i]);
-////                    Console.WriteLine($"Image {i + 1} processed and saved");
+                    byte[] imageData = await ReceiveCurrentFrameResponseAsync(udpClient);
+                    Console.WriteLine($"Received {imageData.Length} bytes of image data for image {i + 1}");
 
-////                    Console.WriteLine();
-////                }
-////            }
-////        }
-////        catch (SocketException ex)
-////        {
-////            Console.WriteLine($"SocketException: {ex.Message}");
-////            Console.WriteLine($"ErrorCode: {ex.ErrorCode}");
-////        }
-////        catch (Exception ex)
-////        {
-////            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
-////            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-////        }
-////        finally
-////        {
-////            stopwatch.Stop(); // Add this line
-////            Console.WriteLine($"Total time taken: {stopwatch.Elapsed}"); // Add this line
-////        }
-////    }
+                    string outputPath = await SaveImageAndCalculateBrightness(imageData, timestamp, exposureTimes[i]);
+                    Console.WriteLine($"Image {i + 1} processed and saved");
 
-////    private static byte[] CreateCurrentFrameRequest(int exposureTime, int id)
-////    {
-////        byte[] request = new byte[23];
+                    Console.WriteLine();
+                }
+            }
+        }
+        catch (SocketException ex)
+        {
+            Console.WriteLine($"SocketException: {ex.Message}");
+            Console.WriteLine($"ErrorCode: {ex.ErrorCode}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+        }
+        finally
+        {
+            stopwatch.Stop(); // Add this line
+            Console.WriteLine($"Total time taken: {stopwatch.Elapsed}"); // Add this line
+        }
+    }
 
-////        request[0] = 0x02; // STX
+    private static byte[] CreateCurrentFrameRequest(int exposureTime, int id)
+    {
+        byte[] request = new byte[23];
 
-////        byte[] unitIdBytes = BitConverter.GetBytes(UnitId);
-////        byte[] sizeBytes = BitConverter.GetBytes(23);
-////        byte[] typeBytes = BitConverter.GetBytes((ushort)72);
-////        byte[] versionBytes = BitConverter.GetBytes((ushort)0);
-////        byte[] idBytes = BitConverter.GetBytes(id);
-////        byte[] exposureTimeBytes = BitConverter.GetBytes(exposureTime);
+        request[0] = 0x02; // STX
 
-////        if (!BitConverter.IsLittleEndian)
-////        {
-////            Array.Reverse(unitIdBytes);
-////            Array.Reverse(sizeBytes);
-////            Array.Reverse(typeBytes);
-////            Array.Reverse(versionBytes);
-////            Array.Reverse(idBytes);
-////            Array.Reverse(exposureTimeBytes);
-////        }
+        byte[] unitIdBytes = BitConverter.GetBytes(UnitId);
+        byte[] sizeBytes = BitConverter.GetBytes(23);
+        byte[] typeBytes = BitConverter.GetBytes((ushort)72);
+        byte[] versionBytes = BitConverter.GetBytes((ushort)0);
+        byte[] idBytes = BitConverter.GetBytes(id);
+        byte[] exposureTimeBytes = BitConverter.GetBytes(exposureTime);
 
-////        unitIdBytes.CopyTo(request, 1);
-////        sizeBytes.CopyTo(request, 5);
-////        typeBytes.CopyTo(request, 9);
-////        versionBytes.CopyTo(request, 11);
-////        idBytes.CopyTo(request, 13);
-////        exposureTimeBytes.CopyTo(request, 17);
+        if (!BitConverter.IsLittleEndian)
+        {
+            Array.Reverse(unitIdBytes);
+            Array.Reverse(sizeBytes);
+            Array.Reverse(typeBytes);
+            Array.Reverse(versionBytes);
+            Array.Reverse(idBytes);
+            Array.Reverse(exposureTimeBytes);
+        }
 
-////        request[21] = CalculateXOR(request, 0, 21);
-////        request[22] = 0x03; // ETX
+        unitIdBytes.CopyTo(request, 1);
+        sizeBytes.CopyTo(request, 5);
+        typeBytes.CopyTo(request, 9);
+        versionBytes.CopyTo(request, 11);
+        idBytes.CopyTo(request, 13);
+        exposureTimeBytes.CopyTo(request, 17);
 
-////        return request;
-////    }
+        request[21] = CalculateXOR(request, 0, 21);
+        request[22] = 0x03; // ETX
 
-////    private static async Task<byte[]> ReceiveCurrentFrameResponseAsync(UdpClient udpClient)
-////    {
-////        UdpReceiveResult result = await udpClient.ReceiveAsync();
-////        byte[] response = result.Buffer;
+        return request;
+    }
 
-////        if (response.Length < 21)
-////            throw new Exception("Incomplete response received");
+    private static async Task<byte[]> ReceiveCurrentFrameResponseAsync(UdpClient udpClient)
+    {
+        UdpReceiveResult result = await udpClient.ReceiveAsync();
+        byte[] response = result.Buffer;
 
-////        if (response[0] != 0x02)
-////            throw new Exception("Invalid STX in response");
+        if (response.Length < 21)
+            throw new Exception("Incomplete response received");
 
-////        int totalSize = BitConverter.ToInt32(response, 5);
-////        ushort messageType = BitConverter.ToUInt16(response, 9);
-////        int imageSize = BitConverter.ToInt32(response, 17);
+        if (response[0] != 0x02)
+            throw new Exception("Invalid STX in response");
 
-////        if (messageType != 136)
-////            throw new Exception($"Unexpected message type: {messageType}");
+        int totalSize = BitConverter.ToInt32(response, 5);
+        ushort messageType = BitConverter.ToUInt16(response, 9);
+        int imageSize = BitConverter.ToInt32(response, 17);
 
-////        if (imageSize <= 0 || imageSize > MaxUdpSize)
-////            throw new Exception("Invalid or corrupted image size");
+        if (messageType != 136)
+            throw new Exception($"Unexpected message type: {messageType}");
 
-////        if (response.Length < totalSize)
-////            throw new Exception("Incomplete message received");
+        if (imageSize <= 0 || imageSize > MaxUdpSize)
+            throw new Exception("Invalid or corrupted image size");
 
-////        byte[] imageData = new byte[imageSize];
-////        Buffer.BlockCopy(response, 21, imageData, 0, imageSize);
+        if (response.Length < totalSize)
+            throw new Exception("Incomplete message received");
 
-////        return imageData;
-////    }
+        byte[] imageData = new byte[imageSize];
+        Buffer.BlockCopy(response, 21, imageData, 0, imageSize);
 
-////    private static byte CalculateXOR(byte[] data, int start, int length)
-////    {
-////        byte xor = 0;
-////        for (int i = start; i < start + length; i++)
-////        {
-////            xor ^= data[i];
-////        }
-////        return xor;
-////    }
+        return imageData;
+    }
 
-////    private static async Task<string> SaveImageAndCalculateBrightness(byte[] imageData, string timestamp, int exposureTime)
-////    {
-////        using (MemoryStream ms = new MemoryStream(imageData))
-////        using (Image<Rgba32> image = Image.Load<Rgba32>(ms))
-////        {
-////            double brightness = CalculateImageBrightness(image);
+    private static byte CalculateXOR(byte[] data, int start, int length)
+    {
+        byte xor = 0;
+        for (int i = start; i < start + length; i++)
+        {
+            xor ^= data[i];
+        }
+        return xor;
+    }
 
-////            string fileName = $"{UnitId}_{timestamp}_{exposureTime}_{brightness:F4}.jpg";
-////            string outputPath = Path.Combine(OutputDirectory, fileName);
+    private static async Task<string> SaveImageAndCalculateBrightness(byte[] imageData, string timestamp, int exposureTime)
+    {
+        using (MemoryStream ms = new MemoryStream(imageData))
+        using (Image<Rgba32> image = Image.Load<Rgba32>(ms))
+        {
+            double brightness = CalculateImageBrightness(image);
 
-////            await image.SaveAsJpegAsync(outputPath);
+            string fileName = $"{UnitId}_{timestamp}_{exposureTime}_{brightness:F4}.jpg";
+            string outputPath = Path.Combine(OutputDirectory, fileName);
 
-////            string logEntry = $"{UnitId},{timestamp},{exposureTime},{brightness:F4},{outputPath}\n";
-////            await File.AppendAllTextAsync(DataLogFile, logEntry);
+            await image.SaveAsJpegAsync(outputPath);
 
-////            return outputPath;
-////        }
-////    }
+            string logEntry = $"{UnitId},{timestamp},{exposureTime},{brightness:F4},{outputPath}\n";
+            await File.AppendAllTextAsync(DataLogFile, logEntry);
 
-////    private static double CalculateImageBrightness(Image<Rgba32> image)
-////    {
-////        double totalBrightness = 0;
-////        int pixelCount = image.Width * image.Height;
+            return outputPath;
+        }
+    }
 
-////        image.ProcessPixelRows(accessor =>
-////        {
-////            for (int y = 0; y < accessor.Height; y++)
-////            {
-////                Span<Rgba32> pixelRow = accessor.GetRowSpan(y);
-////                for (int x = 0; x < pixelRow.Length; x++)
-////                {
-////                    ref Rgba32 pixel = ref pixelRow[x];
-////                    double pixelBrightness = (0.299 * pixel.R + 0.587 * pixel.G + 0.114 * pixel.B) / 255.0;
-////                    totalBrightness += pixelBrightness;
-////                }
-////            }
-////        });
+    private static double CalculateImageBrightness(Image<Rgba32> image)
+    {
+        double totalBrightness = 0;
+        int pixelCount = image.Width * image.Height;
 
-////        return totalBrightness / pixelCount;
-////    }
-////}
+        image.ProcessPixelRows(accessor =>
+        {
+            for (int y = 0; y < accessor.Height; y++)
+            {
+                Span<Rgba32> pixelRow = accessor.GetRowSpan(y);
+                for (int x = 0; x < pixelRow.Length; x++)
+                {
+                    ref Rgba32 pixel = ref pixelRow[x];
+                    double pixelBrightness = (0.299 * pixel.R + 0.587 * pixel.G + 0.114 * pixel.B) / 255.0;
+                    totalBrightness += pixelBrightness;
+                }
+            }
+        });
+
+        return totalBrightness / pixelCount;
+    }
+
+}
 
 //using System;
 //using System.Collections.Generic;
@@ -227,7 +231,7 @@
 //    {
 //        Console.WriteLine("Multi-Camera LPR Image Capture and Brightness Calculation starting...");
 
-//        int[] exposureTimes = { 1000, 4000, 8000, 16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000, 150000, 175000, 200000, 250000,300000,400000,500000 };
+//        int[] exposureTimes = { 1000, 4000, 8000, 16000, 20000, 23000, 26000, 30000, 60000, 75000, 100000, 150000, 175000, 200000, 250000, 300000, 400000, 500000 };
 //        int[] ids = { 120, 122, 124, 126, 128, 130, 132, 134, 136, 138, 140, 142, 144, 146, 148, 150, 152, 154 };
 
 //        while (true)
@@ -414,3 +418,4 @@
 //        return totalBrightness / pixelCount;
 //    }
 //}
+
