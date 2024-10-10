@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using Serilog;
 using static QuercusSimulator.MessageBuilder;
+using Serilog.Events;
 namespace QuercusSimulator
 {
     class LPRSimulator
@@ -19,16 +20,19 @@ namespace QuercusSimulator
         //public static int RealCamMainPort = Convert.ToInt32(JsonConfigManager.GetValueForKey("RealCamMainPort"));
         public static int ZRMainPort = Convert.ToInt32(JsonConfigManager.GetValueForKey("ServerMainPort"));
         public static int ZRConfigPort = Convert.ToInt32(JsonConfigManager.GetValueForKey("ServerConfigPort"));
+
+        public static string MinLogLevel = JsonConfigManager.GetValueForKey("MinLogLevel");
         //public static string LogFilePath = JsonConfigManager.GetValueForKey("LogFilePath");
         private static readonly string LogFilePath = "C:\\LPR\\EventImages\\Logs\\"; // Hardcoded JSON file path
+        //private const string OutputDirectory = @"D:\LPR\EventImages";
 
         //public static uint UnitId = Convert.ToUInt32(JsonConfigManager.GetValueForKey("UnitId"));
         //public static string TriggerText = JsonConfigManager.GetValueForKey("TriggerText");
 
 
-        static uint lastid = 1;
+        static uint lastid = 2;
         static uint lastcarId = 1;
-        static uint id = 1;
+        static uint id = 2;
         static uint carId = 1;
         //private const int CameraMainPort = 7051; // First port to listen on
         //private const int CameraConfigPort = 7041; // Second port to listen on
@@ -46,7 +50,6 @@ namespace QuercusSimulator
             ConfigureLogging(); // Call the method to set up Serilog
 
             Log.Information("LPR Simulator starting...");
-            Log.Error("An error occurred.");
             //Log.CloseAndFlush(); // Ensure logs are flushed before application exit
 
             // Start the camera simulators for both ports
@@ -93,10 +96,26 @@ namespace QuercusSimulator
         private static void ConfigureLogging()
         {
             // Set up Serilog to log to the file specified in LogFilePath
+            //Log.Logger = new LoggerConfiguration()
+            //    .WriteTo.File($"{LogFilePath}simulatorlog.txt", // Save logs to logfile.txt in the specified folder
+            //                  rollingInterval: RollingInterval.Day, // Creates a new log file daily
+            //                  retainedFileCountLimit: 7, // Retain last 7 log files
+            //                  rollOnFileSizeLimit: true)
+            //    .CreateLogger();
+
+            // Determine the minimum log level
+            LogEventLevel minLogLevel;
+            if (!Enum.TryParse(MinLogLevel, true, out minLogLevel))
+            {
+                minLogLevel = LogEventLevel.Information; // Default to Information if parsing fails
+            }
+
+            // Set up Serilog
             Log.Logger = new LoggerConfiguration()
-                .WriteTo.File($"{LogFilePath}simulatorlog.txt", // Save logs to logfile.txt in the specified folder
-                              rollingInterval: RollingInterval.Day, // Creates a new log file daily
-                              retainedFileCountLimit: 7, // Retain last 7 log files
+                .MinimumLevel.Is(minLogLevel)
+                .WriteTo.File(Path.Combine(LogFilePath, "simulatorlog_.txt"),
+                              rollingInterval: RollingInterval.Day,
+                              retainedFileCountLimit: 7,
                               rollOnFileSizeLimit: true)
                 .CreateLogger();
         }
@@ -181,11 +200,11 @@ namespace QuercusSimulator
                 int cameraSendPort = 6051;
                 int cameraReceivePort = 6050;
                 string OutputDirectory = @"D:\LPR\EventImages";
-                int[] exposureTimes = { 75000, 200000, 500000 };
-                int[] ids = { 120, 122, 124 };
+                int[] exposureTimes = {500000, 75000 };
+                int[] ids = { 120, 122 };
 
                 await CurrentFrame.GetAndSaveImages(unitId, realCamIP, exposureTimes, ids, OutputDirectory, cameraSendPort, cameraReceivePort);
-                {
+                
                     LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
 
 
@@ -245,4 +264,4 @@ namespace QuercusSimulator
         }
 
     }
-}
+

@@ -60,7 +60,7 @@ namespace QuercusSimulator
             response[24] = 0x03;
 
             // Log the response message for verification
-            Log.Information("Raw Status Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
+            Log.Debug("Raw Status Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
 
             return response;
         }
@@ -99,14 +99,14 @@ namespace QuercusSimulator
             response[18] = 0x03;
 
             // Log the response message for verification
-            Log.Information("Raw Trigger Response (hex): " + BitConverter.ToString(response).Replace("-", ""));
-            Log.Information($"Trigger Time: {DateTime.Now}");
+            Log.Information("Raw Trigger Ack Message (hex): " + BitConverter.ToString(response).Replace("-", ""));
+            Log.Information($"Trigger Ack Time: {DateTime.Now}");
 
             return response;
         }
         public static byte[] CreateLPNImageResponse(byte[] request)
         {
-            Log.Information($"#############Image Response Time 1: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+            Log.Information($"############# Creating Image Response: {DateTime.Now.ToString("HH:mm:ss.fff")}");
 
             //string imagePath = @"D:\lp.jpg";
             //string imagePath = @"C:\EventImages\lastimage.jpg";
@@ -192,7 +192,7 @@ namespace QuercusSimulator
 
             // ETX (End of Text)
             response[totalSize - 1] = 0x03;
-            Log.Information($"#############Image Response Time 2: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+            Log.Information($"############# Sending Image to ZR: {DateTime.Now.ToString("HH:mm:ss.fff")}");
 
             return response;
         }
