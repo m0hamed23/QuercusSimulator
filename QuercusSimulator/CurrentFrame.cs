@@ -31,7 +31,7 @@ public static class CurrentFrame
 
     static int[] ids = { 100, 200 ,300, 400};
 
-    public static async Task GetAndSaveImages(
+    public static async Task<bool> GetAndSaveImages(
     uint cameraId,
     string cameraIP,
     string outputDirectory,
@@ -44,6 +44,7 @@ public static class CurrentFrame
         const int maxRetries = 2;
         const int singleAttemptTimeout = 300;
         const int overallTimeout = 4000;
+        bool imageSaved = false;
 
         try
         {
@@ -156,6 +157,8 @@ public static class CurrentFrame
                     // Find the brightness of the best image
                     var bestImageInfo = images.First(img => img.exposureTime == bestExposureTime);
                     Log.Information($"Best image details - Exposure Time: {bestExposureTime}ms, Brightness: {bestImageInfo.brightness:F2}");
+                    imageSaved = true;
+
                 }
                 else
                 {
@@ -177,6 +180,8 @@ public static class CurrentFrame
             stopwatch.Stop();
             Log.Information($"Total time taken: {stopwatch.Elapsed}");
         }
+        return imageSaved;
+
     }
 
     private static async Task<byte[]> ReceiveCurrentFrameResponseAsyncWithTimeout(UdpClient udpClient, CancellationToken cancellationToken)

@@ -231,25 +231,25 @@ namespace QuercusSimulator
                 //int[] exposureTimes = { 4000, 16000 };
                 //int[] ids = { 100, 200 };
 
-                await CurrentFrame.GetAndSaveImages(unitId, realCamIP, OutputDirectory, cameraSendPort);
-
+                bool imageWasSaved = await CurrentFrame.GetAndSaveImages(unitId, realCamIP, OutputDirectory, cameraSendPort);
                 imageProcessingStopwatch.Stop();
                 long imageProcessingTime = imageProcessingStopwatch.ElapsedMilliseconds;
-
-                // Start timing for LPN capture
                 var lpnCaptureStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                LPNResult LastLPNResult = null;
 
-                LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
+                if (imageWasSaved)
+                {
+                    LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
 
+                    Console.WriteLine("An image was successfully saved.");
+                }
+                else
+                {
+                    Console.WriteLine("No image was saved.");
+                }
 
-
-
-                //LastLPNResult.ArabicLPN = "395BTN";
-                //string newDetectedChars = "123ASD";
-                if (LastLPNResult != null)
+                if (LastLPNResult != null && LastLPNResult.ArabicLPN != null)
                     {
-
-
                         string newDetectedChars = LastLPNResult.ArabicLPN;
 
                         id = lastid + 2;
