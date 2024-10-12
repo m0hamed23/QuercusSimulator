@@ -8,9 +8,10 @@ using System.Text.Json;
 using Serilog;
 using static QuercusSimulator.MessageBuilder;
 using Serilog.Events;
+using System.Collections.Concurrent;
 namespace QuercusSimulator
 {
-    class LPRSimulator
+    public static class LPRSimulator
     {
 
         public static int SimulatorMainPort = Convert.ToInt32(JsonConfigManager.GetValueForKey("CameraMainPort"));
@@ -24,10 +25,12 @@ namespace QuercusSimulator
         public static string MinLogLevel = JsonConfigManager.GetValueForKey("MinLogLevel");
         //public static string LogFilePath = JsonConfigManager.GetValueForKey("LogFilePath");
         private static readonly string LogFilePath = "C:\\LPR\\EventImages\\Logs\\"; // Hardcoded JSON file path
-        //private const string OutputDirectory = @"D:\LPR\EventImages";
+                                                                                     //private const string OutputDirectory = @"D:\LPR\EventImages";
 
         //public static uint UnitId = Convert.ToUInt32(JsonConfigManager.GetValueForKey("UnitId"));
         //public static string TriggerText = JsonConfigManager.GetValueForKey("TriggerText");
+        // Use ConcurrentDictionary for thread-safe operations
+        private static ConcurrentDictionary<string, byte[]> lastBestImageData = new ConcurrentDictionary<string, byte[]>();
 
 
         static uint lastid = 2;
@@ -142,21 +145,36 @@ namespace QuercusSimulator
             {
                 case 0x4400: // Status Request
                     response = CreateStatusResponse(message);
+                    Log.Debug($">>>>Zr sent Status Request");
+                    // Forward the original request to the corresponding unit
+                    await ForwardStatusRequest(message);
+
                     break;
                 case 0x4300: // Trigger Request
                              //await ResendTriggerRequest(message);
+                    Log.Information($"############################################################");
+                    Log.Information($">>>>Zr sent Trigger : {DateTime.Now.ToString("HH:mm:ss.fff")}");
+                    
                     response = CreateTriggerResponse(message);
                     break;
                 case 0x4700: // LPN Image Request
+                    Log.Information($">>>>Zr sent Image Request");
                     response = CreateLPNImageResponse(message);
                     break;
                 case 0x6000: // Ping
+                    Log.Information($">>>>Zr sent Ping");
                     response = CreatePingResponse(message);
                     // Ping response must be sent to 10.0.0.10:7040
                     remoteEndPoint = new IPEndPoint(IPAddress.Parse(ZRIP), ZRConfigPort);
                     break;
+                case 0xC000: // Ack
+                    Log.Information($">>>>Zr sent ACK Message");
+                    break;
+                case 0xC100: // NAK
+                    Log.Information($">>>>Zr sent NAK Message");
+                    break;
                 default:
-                    Log.Information($"Unsupported message type: 0x{messageType:X4}");
+                    Log.Information($">>>>ZR sent Message of unsupported type: 0x{messageType:X4}");
                     return;
             }
 
@@ -166,22 +184,33 @@ namespace QuercusSimulator
                 await udpClient.SendAsync(response, response.Length, remoteEndPoint);
                 //LogMessage("Camera", "Server", response);
             }
+            else
+            {
+                Log.Warning($"No need for Response / Response returned by MessageBuilder is null");
 
+            }
             if (messageType == 0x4300) // Trigger Request
             {
-                Log.Information($"############# after trigger ack time: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+                Log.Information($"#############  Trigger Was acknowledged: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+                // Start timing for image processing
+                var imageProcessingStopwatch = System.Diagnostics.Stopwatch.StartNew();
 
                 //uint Id = 13;
                 //uint TriggerId = 11;
                 uint unitId = BitConverter.ToUInt32(message, 1);
                 uint Id = BitConverter.ToUInt32(message, 13);
                 uint TriggerId = BitConverter.ToUInt32(message, 17);
+                int cameraSendPort = 6051;
 
                 // Initialize cameraEndPoint with default values
                 IPEndPoint cameraEndPoint = null;
 
                 // Get RealCam IP and Port based on UnitId
                 (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
+
+                // Send status request before getting and saving images
+                //byte[] statusRequest = SendStatusRequest(unitId, Id);
+                //await SendRequestAsync(statusRequest, realCamIP, cameraSendPort);
 
                 //if (realCamIP != null && realCamMainPort != 0)
                 //{
@@ -194,74 +223,81 @@ namespace QuercusSimulator
                 //    Log.Error($"Invalid camera configuration for UnitId {unitId}");
                 //}
 
+
                 //IPEndPoint cameraEndPoint = new IPEndPoint(IPAddress.Parse(RealCamIP), RealCamMainPort);
 
                 //LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
-                int cameraSendPort = 6051;
-                int cameraReceivePort = 6050;
+                //int cameraReceivePort = 6050;
                 string OutputDirectory = @"D:\LPR\EventImages";
-                int[] exposureTimes = {500000, 75000 };
-                int[] ids = { 120, 122 };
+                //int[] exposureTimes = { 4000, 16000 };
+                //int[] ids = { 100, 200 };
 
-                await CurrentFrame.GetAndSaveImages(unitId, realCamIP, exposureTimes, ids, OutputDirectory, cameraSendPort, cameraReceivePort);
-                
-                    LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
+                await CurrentFrame.GetAndSaveImages(unitId, realCamIP, OutputDirectory, cameraSendPort);
+
+                imageProcessingStopwatch.Stop();
+                long imageProcessingTime = imageProcessingStopwatch.ElapsedMilliseconds;
+
+                // Start timing for LPN capture
+                var lpnCaptureStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync(realCamIP);
 
 
-                    //LPNResult LastLPNResult = new LPNResult();
 
-                    //LastLPNResult.ArabicLPN = "395BTN";
 
-                    //string newDetectedChars = "123ASD";
-                    //string newPrintableString = "123 ASD";
-                    if (LastLPNResult != null)
-                    //if (true)
-
+                //LastLPNResult.ArabicLPN = "395BTN";
+                //string newDetectedChars = "123ASD";
+                if (LastLPNResult != null)
                     {
-                        //uint triggerId = BitConverter.ToUInt32(message, 17);
-                        //uint unitId = BitConverter.ToUInt32(message, 1);
+
 
                         string newDetectedChars = LastLPNResult.ArabicLPN;
-                        //string newDetectedChars = "395BTN";
-
-                        string newPrintableString = newDetectedChars;
-                        Log.Information($"newDetectedChars:{newDetectedChars}");
-                        // Separate digits and letters
-                        //string numbers = string.Concat(newDetectedChars.Where(char.IsDigit));
-                        //string letters = string.Concat(newDetectedChars.Where(char.IsLetter));
-
-                        //// Combine with a space in between
-                        //newPrintableString = numbers + " " + letters;
 
                         id = lastid + 2;
                         carId = lastcarId + 1;
                         lastid = id;
                         lastcarId = carId;
-
-                        //string detectedChars = "395BTN";
-
                         // Create the license plate info message with the extracted Unit ID and Trigger ID
                         byte[] licensePlateInfoMessage = LPInfoMessage.CreateLicensePlateInfoMessage(unitId, id, carId, TriggerId, newDetectedChars);
                         await udpClient.SendAsync(licensePlateInfoMessage, licensePlateInfoMessage.Length, remoteEndPoint);
+                        Log.Information($"############# Sent LPN to ZR: {DateTime.Now.ToString("HH:mm:ss.fff")}");
+                        lpnCaptureStopwatch.Stop();
+                        long lpnCaptureTime = lpnCaptureStopwatch.ElapsedMilliseconds;
+                    // Calculate total time
+                    long totalTime = imageProcessingTime + lpnCaptureTime;
 
+                    // Log the timings
+                    Log.Information($"Time for best image capture: {imageProcessingTime} ms");
+                    Log.Information($"Time for LPN Recognition & Sending LPN: {lpnCaptureTime} ms");
+                    Log.Information($"############### Total processing time: {totalTime} ms ###############");
 
-                        // Display the raw message as a hexadecimal string
-                        //Log.Information("Raw License Plate Info Message (hex): " + BitConverter.ToString(licensePlateInfoMessage).Replace("-", ""));
-                    }
-                    else
+                }
+                else
                     {
                         Log.Information($"LastLPNResult is null");
 
 
                     }
-                    Log.Information($"############# sent LPN time: {DateTime.Now.ToString("HH:mm:ss.fff")}");
 
 
                 }
             }
-
-
+        private static async Task SendRequestAsync(byte[] request, string ip, int port)
+        {
+            using (var client = new UdpClient())
+            {
+                try
+                {
+                    await client.SendAsync(request, request.Length, ip, port);
+                    Log.Information($"Status request sent to {ip}:{port}");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Error sending status request to {ip}:{port}: {ex.Message}");
+                }
+            }
         }
+    }
 
     }
 
