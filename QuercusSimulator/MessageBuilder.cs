@@ -132,52 +132,6 @@ namespace QuercusSimulator
 
             return request;
         }
-        //public static byte[] SendStatusRequest()
-        //{
-        //    // The request should be exactly 20 bytes (19 bytes + ETX)
-        //    byte[] request = new byte[19];
-
-        //    // STX (Start of Text)
-        //    request[0] = 0x02;
-
-        //    // Unit ID (4 bytes) - You may need to set this based on your system's requirements
-        //    request[1] = 0x01; // Example: Setting Unit ID to 1
-        //    request[2] = 0x00;
-        //    request[3] = 0x00;
-        //    request[4] = 0x00;
-
-        //    // Size (4 bytes) - Total size of 19 bytes (0x13000000 in little-endian format)
-        //    request[5] = 0x13;
-        //    request[6] = 0x00;
-        //    request[7] = 0x00;
-        //    request[8] = 0x00;
-
-        //    // Type (2 bytes) - Status Request (0x0400)
-        //    request[9] = 0x04;
-        //    request[10] = 0x00;
-
-        //    // Version (2 bytes) - Version (0x0100)
-        //    request[11] = 0x01;
-        //    request[12] = 0x00;
-
-        //    // ID (4 bytes) - You may need to implement a system to generate unique IDs
-        //    // For this example, we'll use 2 as the first ID sent by the central system
-        //    request[13] = 0x02;
-        //    request[14] = 0x00;
-        //    request[15] = 0x00;
-        //    request[16] = 0x00;
-
-        //    // BCC (Block Check Character) - XOR from STX to the last byte before BCC
-        //    request[17] = CalculateXOR(request, 0, 17);
-
-        //    // ETX (End of Text)
-        //    request[18] = 0x03;
-
-        //    // Log the request message for verification
-        //    Log.Debug("Sent Status Request (hex): " + BitConverter.ToString(request).Replace("-", ""));
-
-        //    return request;
-        //}
         public static byte[] CreateTriggerResponse(byte[] request)
         {
 
@@ -310,111 +264,6 @@ namespace QuercusSimulator
 
             return response;
         }
-        //public static byte[] CreateLPNImageResponse(byte[] request)
-        //{
-        //    Log.Information($"############# Creating Image Response: {DateTime.Now:HH:mm:ss.fff}");
-
-        //    // Extract the Unit ID (assuming it's at byte index 1)
-        //    uint unitId = BitConverter.ToUInt32(request, 1);
-
-        //    // Get RealCam IP and Port based on UnitId
-        //    (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
-
-
-        //    //    //string imagePath = @"D:\lp.jpg";
-        //    string imageFilePath = @"D:\LPR\EventImages\lastimage_110.jpg";
-
-        //    //    // Extract the Unit ID (assuming it's at byte index 1)
-        //    //    uint unitId = BitConverter.ToUInt32(request, 1);
-
-        //    //    // Get RealCam IP and Port based on UnitId
-        //    //    (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
-
-        //    //    // Extract the last octet of the IP address
-        //    //    string lastOctet = realCamIP.Split('.').Last();
-
-        //    //    // Construct the image file path using the last octet
-        //    //    string imageFilePath = $"{ImagePath}_{lastOctet}.jpg";
-
-        //    //    //string imageFilePath = $"{ImagePath}{realCamIP}.jpg";
-
-        //    //byte[] imageData = File.ReadAllBytes(imageFilePath);
-        //    //    int imageSize = imageData.Length;
-
-
-        //    // Get the last captured image data from memory
-        //    byte[] imageData = LPRSimulator.GetLastBestImageData(realCamIP);
-
-        //    if (imageData == null)
-        //    {
-        //        Log.Warning($"No image data found in memory for camera {realCamIP}. Using default image.");
-        //        //// You might want to use a default image or handle this case differently
-        //        //string defaultImagePath = $"{ImagePath}_default.jpg";
-        //        //imageData = File.ReadAllBytes(defaultImagePath);
-        //        return null;
-        //    }
-
-        //    int imageSize = imageData.Length;
-
-        //    // Define center coordinates
-        //    int centerX = ImageWidth / 2;
-        //    int centerY = ImageHeight / 2;
-
-        //    // Define ROI size (50% of the image size)
-        //    int roiWidth = (int)(ImageWidth * 0.5);
-        //    int roiHeight = (int)(ImageHeight * 0.5);
-
-        //    // Calculate ROI coordinates
-        //    ushort roiLeft = (ushort)(centerX - (roiWidth / 2));
-        //    ushort roiRight = (ushort)(centerX + (roiWidth / 2));
-        //    ushort roiTop = (ushort)(centerY - (roiHeight / 2));
-        //    ushort roiBottom = (ushort)(centerY + (roiHeight / 2));
-
-        //    // Calculate total response size
-        //    int totalSize = 1 + 4 + 4 + 2 + 2 + 4 + 8 + 4 + imageSize + 1 + 1;
-        //    byte[] response = new byte[totalSize];
-
-        //    // STX (Start of Text)
-        //    response[0] = 0x02;
-
-        //    // Unit ID (4 bytes) - Copy from request
-        //    Buffer.BlockCopy(request, 1, response, 1, 4);
-
-        //    // Size (4 bytes) - Total size of the message
-        //    BitConverter.GetBytes((uint)totalSize).CopyTo(response, 5);
-
-        //    // Type (2 bytes) - LPN Image Response (0x8700)
-        //    response[9] = 0x87;
-        //    response[10] = 0x00;
-
-        //    // Version (2 bytes) - Copy from request
-        //    Buffer.BlockCopy(request, 11, response, 11, 2);
-
-        //    // ID (4 bytes) - Copy from request
-        //    Buffer.BlockCopy(request, 13, response, 13, 4);
-
-        //    // ROI coordinates (8 bytes)
-        //    BitConverter.GetBytes(roiTop).CopyTo(response, 17);
-        //    BitConverter.GetBytes(roiLeft).CopyTo(response, 19);
-        //    BitConverter.GetBytes(roiBottom).CopyTo(response, 21);
-        //    BitConverter.GetBytes(roiRight).CopyTo(response, 23);
-
-        //    // Image Size (4 bytes)
-        //    BitConverter.GetBytes((uint)imageSize).CopyTo(response, 25);
-
-        //    // Image Data (variable)
-        //    Buffer.BlockCopy(imageData, 0, response, 29, imageSize);
-
-        //    // BCC (Block Check Character) - XOR from STX to the last byte before BCC
-        //    response[totalSize - 2] = CalculateXOR(response, 0, totalSize - 2);
-
-        //    // ETX (End of Text)
-        //    response[totalSize - 1] = 0x03;
-
-        //    Log.Information($"############# Sending Image to ZR: {DateTime.Now:HH:mm:ss.fff}");
-        //    return response;
-        //}
-
         public static byte[] CreatePingResponse(byte[] request)
         {
             // The response should be exactly 19 bytes (size for ACK response)
@@ -558,16 +407,6 @@ namespace QuercusSimulator
 
             return request;
         }
-        //private static byte CalculateXOR(byte[] data, int start, int length)
-        //{
-        //    byte xor = 0;
-        //    for (int i = start; i < start + length; i++)
-        //    {
-        //        xor ^= data[i];
-        //    }
-        //    return xor;
-        //}
-
         public static async Task<byte[]> ReceiveCurrentFrameResponseAsync(UdpClient udpClient)
         {
 

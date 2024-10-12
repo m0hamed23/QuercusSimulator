@@ -30,7 +30,6 @@ namespace QuercusSimulator
         //public static uint UnitId = Convert.ToUInt32(JsonConfigManager.GetValueForKey("UnitId"));
         //public static string TriggerText = JsonConfigManager.GetValueForKey("TriggerText");
         // Use ConcurrentDictionary for thread-safe operations
-        private static ConcurrentDictionary<string, byte[]> lastBestImageData = new ConcurrentDictionary<string, byte[]>();
 
 
         static uint lastid = 2;
@@ -228,7 +227,7 @@ namespace QuercusSimulator
 
                 //LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
                 //int cameraReceivePort = 6050;
-                string OutputDirectory = @"D:\LPR\EventImages";
+                string OutputDirectory = @"C:\LPR\EventImages";
                 //int[] exposureTimes = { 4000, 16000 };
                 //int[] ids = { 100, 200 };
 

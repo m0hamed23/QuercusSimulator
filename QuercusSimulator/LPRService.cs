@@ -62,8 +62,8 @@ namespace QuercusSimulator
                         {
                             string lpn = responseJson["LPN"];
                             string imageFilePathBase = responseJson["ImageFilePath"];
-                            string newImagePath = imageFilePathBase + ".png";
-                            string croppedLPImagePath = imageFilePathBase + "_LP.png";
+                            string newImagePath = imageFilePathBase + ".jpg";
+                            string croppedLPImagePath = imageFilePathBase + "_LP.jpg";
                             //string arabicLPN = ConvertToArabic(lpn);
                             string arabicLPN = lpn;
                             Log.Information($"License Plate: {arabicLPN}");
