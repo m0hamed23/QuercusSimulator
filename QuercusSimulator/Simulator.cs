@@ -26,7 +26,7 @@ namespace QuercusSimulator
         //public static string LogFilePath = JsonConfigManager.GetValueForKey("LogFilePath");
         private static readonly string LogFilePath = "C:\\LPR\\EventImages\\Logs\\"; // Hardcoded JSON file path
                                                                                      //private const string OutputDirectory = @"D:\LPR\EventImages";
-
+        public static string OutputDirectory = JsonConfigManager.GetValueForKey("OutputDirectory");
         //public static uint UnitId = Convert.ToUInt32(JsonConfigManager.GetValueForKey("UnitId"));
         //public static string TriggerText = JsonConfigManager.GetValueForKey("TriggerText");
         // Use ConcurrentDictionary for thread-safe operations
@@ -199,13 +199,12 @@ namespace QuercusSimulator
                 uint unitId = BitConverter.ToUInt32(message, 1);
                 uint Id = BitConverter.ToUInt32(message, 13);
                 uint TriggerId = BitConverter.ToUInt32(message, 17);
-                int cameraSendPort = 6051;
 
                 // Initialize cameraEndPoint with default values
                 IPEndPoint cameraEndPoint = null;
 
                 // Get RealCam IP and Port based on UnitId
-                (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
+                (string realCamIP, int realCamMainPort, int ReceivePort, int[] ExposureTimes) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
 
                 // Send status request before getting and saving images
                 //byte[] statusRequest = SendStatusRequest(unitId, Id);
@@ -227,11 +226,11 @@ namespace QuercusSimulator
 
                 //LPNResult LastLPNResult = await QuercusSimulator.LPRService.CaptureLPNAsync("10.0.0.111");
                 //int cameraReceivePort = 6050;
-                string OutputDirectory = @"C:\LPR\EventImages";
+                //string OutputDirectory = @"C:\LPR\EventImages";
                 //int[] exposureTimes = { 4000, 16000 };
                 //int[] ids = { 100, 200 };
 
-                bool imageWasSaved = await CurrentFrame.GetAndSaveImages(unitId, realCamIP, OutputDirectory, cameraSendPort);
+                bool imageWasSaved = await CurrentFrame.GetAndSaveImages(unitId, realCamIP, OutputDirectory);
                 imageProcessingStopwatch.Stop();
                 long imageProcessingTime = imageProcessingStopwatch.ElapsedMilliseconds;
                 var lpnCaptureStopwatch = System.Diagnostics.Stopwatch.StartNew();

@@ -71,8 +71,8 @@ namespace QuercusSimulator
             uint unitId = BitConverter.ToUInt32(incomingRequest, 1);
 
             // Get the unit's IP and port based on the Unit ID
-            (string unitIp, int unitPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
-
+            //(string unitIp, int unitPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
+            (string unitIp, int unitPort, int ReceivePort, int[] ExposureTimes) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
             if (string.IsNullOrEmpty(unitIp) || unitPort == 0)
             {
                 Log.Error($"Unable to find IP and port for Unit ID: {unitId}");
@@ -183,13 +183,14 @@ namespace QuercusSimulator
             uint unitId = BitConverter.ToUInt32(request, 1);
 
             // Get RealCam IP and Port based on UnitId
-            (string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
-
+            //(string realCamIP, int realCamMainPort) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
+            (string realCamIP, int realCamMainPort, int ReceivePort, int[] ExposureTimes) = JsonConfigManager.GetCameraInfoByUnitId(unitId);
             // Extract the last octet of the IP address
             string lastOctet = realCamIP.Split('.').Last();
 
             // Construct the image file path using the last octet
-            string imageFilePath = $"{ImagePath}_{lastOctet}.jpg";
+            //string imageFilePath = $"{ImagePath}_{lastOctet}.jpg";
+            string imageFilePath = Path.Combine(ImagePath, $"lastimage_{lastOctet}.jpg");
 
             //string imageFilePath = $"{ImagePath}{realCamIP}.jpg";
 

@@ -5,54 +5,70 @@ using System.Net.Sockets;
 using System.Net;
 using static QuercusSimulator.MessageBuilder;
 using Serilog;
+using QuercusSimulator;
 public static class CurrentFrame
 {
     private const int MaxUdpSize = 65507;
+    public static string LPRServerIP = JsonConfigManager.GetValueForKey("LPRServerIP");
 
+    public static int SingleAttemptTimeout = Convert.ToInt32(JsonConfigManager.GetValueForKey("SingleAttemptTimeout"));
+    public static int OverallTimeout = Convert.ToInt32(JsonConfigManager.GetValueForKey("OverallTimeout"));
+    public static int MaxRetries = Convert.ToInt32(JsonConfigManager.GetValueForKey("MaxRetries"));
+    public static int RealCameraPort = Convert.ToInt32(JsonConfigManager.GetValueForKey("RealCameraPort"));
+    public static int ExposureTimesUpdated = Convert.ToInt32(JsonConfigManager.GetValueForKey("ExposureTimesUpdated"));
+
+    private static Dictionary<string, int[]> cameraExposureTimes = new Dictionary<string, int[]>();
+    private static Dictionary<string, int> cameraReceivePorts = new Dictionary<string, int>();
+
+    static int[] ids;
+    static double LowBrightness;
+    static double HighBrightness;
+
+    static CurrentFrame()
+    {
+        // Initialize the configurations
+        InitializeConfigurations();
+    }
     // Before: Single array for all cameras
     // static int[] exposureTimes = { 4000, 16000 };
 
     // After: Separate arrays for each camera
-    private static Dictionary<string, int[]> cameraExposureTimes = new Dictionary<string, int[]>
-    {
-        { "10.0.0.101", new int[] { 4096, 2048, 16384, 32768 } },
-        { "10.0.0.181", new int[] { 4096, 2048, 16384, 32768 } },
-        { "10.0.0.182", new int[] { 4096, 2048, 16384, 32768 } }
-    };
+    //private static Dictionary<string, int[]> cameraExposureTimes = new Dictionary<string, int[]>
+    //{
+    //    { "10.0.0.110", new int[] { 4096, 2048, 16384, 32768 } },
+    //    { "10.0.0.181", new int[] { 4096, 2048, 16384, 32768 } },
+    //    { "10.0.0.182", new int[] { 4096, 2048, 16384, 32768 } }
+    //};
 
     //512,2048,4096,16384,32768
     // New: Dictionary to store receive ports for each camera
-    private static Dictionary<string, int> cameraReceivePorts = new Dictionary<string, int>
-    {
-        { "10.0.0.101", 6101 },
-        { "10.0.0.181", 6181 },
-        { "10.0.0.182", 6182 }
-    };
+    //private static Dictionary<string, int> cameraReceivePorts = new Dictionary<string, int>
+    //{
+    //    { "10.0.0.110", 6101 },
+    //    { "10.0.0.181", 6181 },
+    //    { "10.0.0.182", 6182 }
+    //};
 
-    static int[] ids = { 100, 200 ,300, 400};
-
+    //static int[] ids = { 100, 200 ,300, 400};
+    //static double LowBrightness = 0.1;
+    //static double HighBrightness = 0.6;
     public static async Task<bool> GetAndSaveImages(
     uint cameraId,
     string cameraIP,
-    string outputDirectory,
-    int cameraSendPort = 6051)
+    string outputDirectory)
     {
         Log.Information("LPR Camera Image Capture and Brightness Calculation starting...");
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
-
-        const int maxRetries = 2;
-        const int singleAttemptTimeout = 300;
-        const int overallTimeout = 4000;
         bool imageSaved = false;
 
         try
         {
-            using (var overallCts = new CancellationTokenSource(overallTimeout))
+            using (var overallCts = new CancellationTokenSource(OverallTimeout))
             using (UdpClient udpClient = new UdpClient())
             {
                 udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(cameraIP), cameraSendPort);
+                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse(cameraIP), RealCameraPort);
                 IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, cameraReceivePorts[cameraIP]);
                 udpClient.Client.Bind(localEndPoint);
                 Directory.CreateDirectory(outputDirectory);
@@ -65,7 +81,7 @@ public static class CurrentFrame
                 for (int i = 0; i < currentExposureTimes.Length && !bestImageFound; i++)
                 {
                     bool success = false;
-                    for (int retry = 0; retry <= maxRetries && !success; retry++)
+                    for (int retry = 0; retry <= MaxRetries && !success; retry++)
                     {
                         if (overallCts.IsCancellationRequested)
                         {
@@ -82,7 +98,7 @@ public static class CurrentFrame
                             await udpClient.SendAsync(request, request.Length, remoteEndPoint);
                             Log.Information($"Request sent to camera for image {i + 1}, attempt {retry + 1}");
 
-                            using (var attemptCts = new CancellationTokenSource(singleAttemptTimeout))
+                            using (var attemptCts = new CancellationTokenSource(SingleAttemptTimeout))
                             using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(attemptCts.Token, overallCts.Token))
                             {
                                 byte[] imageData = await ReceiveCurrentFrameResponseAsyncWithTimeout(udpClient, linkedCts.Token);
@@ -95,14 +111,18 @@ public static class CurrentFrame
                                 success = true;
 
                                 // Check if this image meets the best image criteria
-                                if (brightness > 0.1 && brightness < 0.6)
+                                if (brightness > LowBrightness && brightness < HighBrightness)
                                 {
                                     bestImageFound = true;
                                     // Move this exposure time to the start of the array
-                                    int bestExposureTime = currentExposureTimes[i];
-                                    Array.Copy(currentExposureTimes, 0, currentExposureTimes, 1, i);
-                                    currentExposureTimes[0] = bestExposureTime;
-                                    cameraExposureTimes[cameraIP] = currentExposureTimes;
+                                    if (ExposureTimesUpdated == 1)
+                                    {
+                                        int bestExposureTime = currentExposureTimes[i];
+                                        Array.Copy(currentExposureTimes, 0, currentExposureTimes, 1, i);
+                                        currentExposureTimes[0] = bestExposureTime;
+                                        cameraExposureTimes[cameraIP] = currentExposureTimes;
+                                    }
+
                                     Log.Information($"Best image found. Updated exposure times for camera {cameraIP}: [{string.Join(", ", currentExposureTimes)}]");
                                     break;
                                 }
@@ -113,23 +133,23 @@ public static class CurrentFrame
                             if (ex is OperationCanceledException || overallCts.IsCancellationRequested)
                             {
                                 Log.Warning($"Operation timed out for image {i + 1}, attempt {retry + 1}");
-                                if (retry < maxRetries)
+                                if (retry < MaxRetries)
                                 {
                                     Log.Information($"Retrying image {i + 1}, attempt {retry + 2}");
                                     continue;
                                 }
                                 else
                                 {
-                                    Log.Error($"Failed to capture image {i + 1} after {maxRetries + 1} attempts");
+                                    Log.Error($"Failed to capture image {i + 1} after {MaxRetries + 1} attempts");
                                     break;
                                 }
                             }
 
                             Log.Warning($"Error occurred for image {i + 1}, attempt {retry + 1}. Error: {ex.Message}");
 
-                            if (retry == maxRetries)
+                            if (retry == MaxRetries)
                             {
-                                Log.Error($"Failed to capture image {i + 1} after {maxRetries + 1} attempts");
+                                Log.Error($"Failed to capture image {i + 1} after {MaxRetries + 1} attempts");
                                 break;
                             }
                         }
@@ -263,5 +283,24 @@ public static class CurrentFrame
 
             return totalBrightness / pixelCount;
         }
+
     }
+    private static void InitializeConfigurations()
+    {
+        // Get camera configurations
+        for (uint i = 1; i <= 3; i++)
+        {
+            var (ip, _, receivePort, exposureTimes) = JsonConfigManager.GetCameraInfoByUnitId(i);
+            if (ip != null)
+            {
+                cameraExposureTimes[ip] = exposureTimes;
+                cameraReceivePorts[ip] = receivePort;
+            }
+        }
+        ids = JsonConfigManager.GetIDs();
+        LowBrightness = JsonConfigManager.GetLowBrightness();
+        HighBrightness = JsonConfigManager.GetHighBrightness();
+
+    }
+
 }
